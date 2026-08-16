@@ -1,0 +1,13 @@
+
+Profile 'botter-scratch' created at /Users/treysweeney/.hermes/profiles/botter-scratch
+Cloned config, .env, SOUL.md, and skills from default.
+Wrapper created: /Users/treysweeney/.local/bin/botter-scratch
+
+Next steps:
+  botter-scratch setup              Configure API keys and model
+  botter-scratch chat               Start chatting
+  botter-scratch gateway start      Start the messaging gateway
+
+  Edit ~/.hermes/profiles/botter-scratch/.env for different API keys
+  Edit ~/.hermes/profiles/botter-scratch/SOUL.md for different personality
+

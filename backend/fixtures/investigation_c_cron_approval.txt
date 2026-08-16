@@ -1,0 +1,88 @@
+REQUEST POST http://127.0.0.1:8642/p/botter-scratch/api/jobs
+{"job": {"id": "5b8fcd4c1687", "name": "botter-phase0-approval", "prompt": "Use your terminal tool to run: touch /tmp/botter-approval-probe \u2014 if this action requires approval, request it and wait; do not attempt any workaround.", "skills": [], "skill": null, "model": null, "provider": null, "provider_snapshot": "openrouter", "model_snapshot": "deepseek/deepseek-v4-flash-0731", "base_url": null, "script": null, "no_agent": false, "monitor_script": null, "monitor_url": null, "monitor_state": null, "context_from": null, "schedule": {"kind": "cron", "expr": "0 0 1 1 *", "display": "0 0 1 1 *"}, "schedule_display": "0 0 1 1 *", "repeat": {"times": null, "completed": 0}, "enabled": true, "state": "scheduled", "paused_at": null, "paused_reason": null, "created_at": "2026-08-13T20:38:37.436193-05:00", "next_run_at": "2027-01-01T00:00:00-05:00", "last_run_at": null, "last_status": null, "last_error": null, "last_delivery_error": null, "deliver": "local", "origin": {"platform": "api_server", "chat_id": "api", "source_ip": "127.0.0.1", "peer_ip": "127.0.0.1", "user_agent": "curl/8.7.1"}, "enabled_toolsets": null, "workdir": null}}
+HTTP_STATUS 200
+REQUEST POST http://127.0.0.1:8642/p/botter-scratch/api/jobs/5b8fcd4c1687/run
+{"job": {"id": "5b8fcd4c1687", "name": "botter-phase0-approval", "prompt": "Use your terminal tool to run: touch /tmp/botter-approval-probe \u2014 if this action requires approval, request it and wait; do not attempt any workaround.", "skills": [], "skill": null, "model": null, "provider": null, "provider_snapshot": "openrouter", "model_snapshot": "deepseek/deepseek-v4-flash-0731", "base_url": null, "script": null, "no_agent": false, "monitor_script": null, "monitor_url": null, "monitor_state": null, "context_from": null, "schedule": {"kind": "cron", "expr": "0 0 1 1 *", "display": "0 0 1 1 *"}, "schedule_display": "0 0 1 1 *", "repeat": {"times": null, "completed": 0}, "enabled": true, "state": "scheduled", "paused_at": null, "paused_reason": null, "created_at": "2026-08-13T20:38:37.436193-05:00", "next_run_at": "2026-08-13T20:38:37.586014-05:00", "last_run_at": null, "last_status": null, "last_error": null, "last_delivery_error": null, "deliver": "local", "origin": {"platform": "api_server", "chat_id": "api", "source_ip": "127.0.0.1", "peer_ip": "127.0.0.1", "user_agent": "curl/8.7.1"}, "enabled_toolsets": null, "workdir": null}}
+HTTP_STATUS 200
+
+POLL 1 2026-08-14T01:38:37Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2026-08-13T20:38:37.586014-05:00"}
+
+POLL 2 2026-08-14T01:38:42Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2026-08-13T20:38:37.586014-05:00"}
+
+POLL 3 2026-08-14T01:38:47Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2026-08-13T20:38:37.586014-05:00"}
+
+POLL 4 2026-08-14T01:38:52Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2026-08-13T20:38:37.586014-05:00"}
+
+POLL 5 2026-08-14T01:38:57Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2026-08-13T20:38:37.586014-05:00"}
+
+POLL 6 2026-08-14T01:39:03Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2026-08-13T20:38:37.586014-05:00"}
+
+POLL 7 2026-08-14T01:39:08Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2027-01-01T00:00:00-05:00"}
+
+POLL 8 2026-08-14T01:39:13Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2027-01-01T00:00:00-05:00"}
+
+POLL 9 2026-08-14T01:39:18Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2027-01-01T00:00:00-05:00"}
+
+POLL 10 2026-08-14T01:39:23Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2027-01-01T00:00:00-05:00"}
+
+POLL 11 2026-08-14T01:39:28Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2027-01-01T00:00:00-05:00"}
+
+POLL 12 2026-08-14T01:39:33Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2027-01-01T00:00:00-05:00"}
+
+POLL 13 2026-08-14T01:39:38Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2027-01-01T00:00:00-05:00"}
+
+POLL 14 2026-08-14T01:39:43Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2027-01-01T00:00:00-05:00"}
+
+POLL 15 2026-08-14T01:39:48Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2027-01-01T00:00:00-05:00"}
+
+POLL 16 2026-08-14T01:39:54Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2027-01-01T00:00:00-05:00"}
+
+POLL 17 2026-08-14T01:39:59Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2027-01-01T00:00:00-05:00"}
+
+POLL 18 2026-08-14T01:40:04Z
+{"state": "scheduled", "last_run_at": null, "last_status": null, "last_error": null, "next_run_at": "2027-01-01T00:00:00-05:00"}
+
+POLL 19 2026-08-14T01:40:09Z
+{"state": "scheduled", "last_run_at": "2026-08-13T20:40:08.713250-05:00", "last_status": "ok", "last_error": null, "next_run_at": "2027-01-01T00:00:00-05:00"}
+JOB_FIRED after poll 19
+
+POST_FIRE_SWEEP 1 2026-08-14T01:40:24Z
+{"job": {"id": "5b8fcd4c1687", "name": "botter-phase0-approval", "prompt": "Use your terminal tool to run: touch /tmp/botter-approval-probe \u2014 if this action requires approval, request it and wait; do not attempt any workaround.", "skills": [], "skill": null, "model": null, "provider": null, "provider_snapshot": "openrouter", "model_snapshot": "deepseek/deepseek-v4-flash-0731", "base_url": null, "script": null, "no_agent": false, "monitor_script": null, "monitor_url": null, "monitor_state": null, "context_from": null, "schedule": {"kind": "cron", "expr": "0 0 1 1 *", "display": "0 0 1 1 *"}, "schedule_display": "0 0 1 1 *", "repeat": {"times": null, "completed": 1}, "enabled": true, "state": "scheduled", "paused_at": null, "paused_reason": null, "created_at": "2026-08-13T20:38:37.436193-05:00", "next_run_at": "2027-01-01T00:00:00-05:00", "last_run_at": "2026-08-13T20:40:08.713250-05:00", "last_status": "ok", "last_error": null, "last_delivery_error": null, "deliver": "local", "origin": {"platform": "api_server", "chat_id": "api", "source_ip": "127.0.0.1", "peer_ip": "127.0.0.1", "user_agent": "curl/8.7.1"}, "enabled_toolsets": null, "workdir": null, "fire_claim": null}}
+
+POST_FIRE_SWEEP 2 2026-08-14T01:40:39Z
+{"job": {"id": "5b8fcd4c1687", "name": "botter-phase0-approval", "prompt": "Use your terminal tool to run: touch /tmp/botter-approval-probe \u2014 if this action requires approval, request it and wait; do not attempt any workaround.", "skills": [], "skill": null, "model": null, "provider": null, "provider_snapshot": "openrouter", "model_snapshot": "deepseek/deepseek-v4-flash-0731", "base_url": null, "script": null, "no_agent": false, "monitor_script": null, "monitor_url": null, "monitor_state": null, "context_from": null, "schedule": {"kind": "cron", "expr": "0 0 1 1 *", "display": "0 0 1 1 *"}, "schedule_display": "0 0 1 1 *", "repeat": {"times": null, "completed": 1}, "enabled": true, "state": "scheduled", "paused_at": null, "paused_reason": null, "created_at": "2026-08-13T20:38:37.436193-05:00", "next_run_at": "2027-01-01T00:00:00-05:00", "last_run_at": "2026-08-13T20:40:08.713250-05:00", "last_status": "ok", "last_error": null, "last_delivery_error": null, "deliver": "local", "origin": {"platform": "api_server", "chat_id": "api", "source_ip": "127.0.0.1", "peer_ip": "127.0.0.1", "user_agent": "curl/8.7.1"}, "enabled_toolsets": null, "workdir": null, "fire_claim": null}}
+
+POST_FIRE_SWEEP 3 2026-08-14T01:40:54Z
+{"job": {"id": "5b8fcd4c1687", "name": "botter-phase0-approval", "prompt": "Use your terminal tool to run: touch /tmp/botter-approval-probe \u2014 if this action requires approval, request it and wait; do not attempt any workaround.", "skills": [], "skill": null, "model": null, "provider": null, "provider_snapshot": "openrouter", "model_snapshot": "deepseek/deepseek-v4-flash-0731", "base_url": null, "script": null, "no_agent": false, "monitor_script": null, "monitor_url": null, "monitor_state": null, "context_from": null, "schedule": {"kind": "cron", "expr": "0 0 1 1 *", "display": "0 0 1 1 *"}, "schedule_display": "0 0 1 1 *", "repeat": {"times": null, "completed": 1}, "enabled": true, "state": "scheduled", "paused_at": null, "paused_reason": null, "created_at": "2026-08-13T20:38:37.436193-05:00", "next_run_at": "2027-01-01T00:00:00-05:00", "last_run_at": "2026-08-13T20:40:08.713250-05:00", "last_status": "ok", "last_error": null, "last_delivery_error": null, "deliver": "local", "origin": {"platform": "api_server", "chat_id": "api", "source_ip": "127.0.0.1", "peer_ip": "127.0.0.1", "user_agent": "curl/8.7.1"}, "enabled_toolsets": null, "workdir": null, "fire_claim": null}}
+
+POST_FIRE_SWEEP 4 2026-08-14T01:41:09Z
+{"job": {"id": "5b8fcd4c1687", "name": "botter-phase0-approval", "prompt": "Use your terminal tool to run: touch /tmp/botter-approval-probe \u2014 if this action requires approval, request it and wait; do not attempt any workaround.", "skills": [], "skill": null, "model": null, "provider": null, "provider_snapshot": "openrouter", "model_snapshot": "deepseek/deepseek-v4-flash-0731", "base_url": null, "script": null, "no_agent": false, "monitor_script": null, "monitor_url": null, "monitor_state": null, "context_from": null, "schedule": {"kind": "cron", "expr": "0 0 1 1 *", "display": "0 0 1 1 *"}, "schedule_display": "0 0 1 1 *", "repeat": {"times": null, "completed": 1}, "enabled": true, "state": "scheduled", "paused_at": null, "paused_reason": null, "created_at": "2026-08-13T20:38:37.436193-05:00", "next_run_at": "2027-01-01T00:00:00-05:00", "last_run_at": "2026-08-13T20:40:08.713250-05:00", "last_status": "ok", "last_error": null, "last_delivery_error": null, "deliver": "local", "origin": {"platform": "api_server", "chat_id": "api", "source_ip": "127.0.0.1", "peer_ip": "127.0.0.1", "user_agent": "curl/8.7.1"}, "enabled_toolsets": null, "workdir": null, "fire_claim": null}}
+
+POST_FIRE_SWEEP 5 2026-08-14T01:41:24Z
+{"job": {"id": "5b8fcd4c1687", "name": "botter-phase0-approval", "prompt": "Use your terminal tool to run: touch /tmp/botter-approval-probe \u2014 if this action requires approval, request it and wait; do not attempt any workaround.", "skills": [], "skill": null, "model": null, "provider": null, "provider_snapshot": "openrouter", "model_snapshot": "deepseek/deepseek-v4-flash-0731", "base_url": null, "script": null, "no_agent": false, "monitor_script": null, "monitor_url": null, "monitor_state": null, "context_from": null, "schedule": {"kind": "cron", "expr": "0 0 1 1 *", "display": "0 0 1 1 *"}, "schedule_display": "0 0 1 1 *", "repeat": {"times": null, "completed": 1}, "enabled": true, "state": "scheduled", "paused_at": null, "paused_reason": null, "created_at": "2026-08-13T20:38:37.436193-05:00", "next_run_at": "2027-01-01T00:00:00-05:00", "last_run_at": "2026-08-13T20:40:08.713250-05:00", "last_status": "ok", "last_error": null, "last_delivery_error": null, "deliver": "local", "origin": {"platform": "api_server", "chat_id": "api", "source_ip": "127.0.0.1", "peer_ip": "127.0.0.1", "user_agent": "curl/8.7.1"}, "enabled_toolsets": null, "workdir": null, "fire_claim": null}}
+
+POST_FIRE_SWEEP 6 2026-08-14T01:41:39Z
+{"job": {"id": "5b8fcd4c1687", "name": "botter-phase0-approval", "prompt": "Use your terminal tool to run: touch /tmp/botter-approval-probe \u2014 if this action requires approval, request it and wait; do not attempt any workaround.", "skills": [], "skill": null, "model": null, "provider": null, "provider_snapshot": "openrouter", "model_snapshot": "deepseek/deepseek-v4-flash-0731", "base_url": null, "script": null, "no_agent": false, "monitor_script": null, "monitor_url": null, "monitor_state": null, "context_from": null, "schedule": {"kind": "cron", "expr": "0 0 1 1 *", "display": "0 0 1 1 *"}, "schedule_display": "0 0 1 1 *", "repeat": {"times": null, "completed": 1}, "enabled": true, "state": "scheduled", "paused_at": null, "paused_reason": null, "created_at": "2026-08-13T20:38:37.436193-05:00", "next_run_at": "2027-01-01T00:00:00-05:00", "last_run_at": "2026-08-13T20:40:08.713250-05:00", "last_status": "ok", "last_error": null, "last_delivery_error": null, "deliver": "local", "origin": {"platform": "api_server", "chat_id": "api", "source_ip": "127.0.0.1", "peer_ip": "127.0.0.1", "user_agent": "curl/8.7.1"}, "enabled_toolsets": null, "workdir": null, "fire_claim": null}}
+
+FULL_JOB_STATE_FINAL
+{"job": {"id": "5b8fcd4c1687", "name": "botter-phase0-approval", "prompt": "Use your terminal tool to run: touch /tmp/botter-approval-probe \u2014 if this action requires approval, request it and wait; do not attempt any workaround.", "skills": [], "skill": null, "model": null, "provider": null, "provider_snapshot": "openrouter", "model_snapshot": "deepseek/deepseek-v4-flash-0731", "base_url": null, "script": null, "no_agent": false, "monitor_script": null, "monitor_url": null, "monitor_state": null, "context_from": null, "schedule": {"kind": "cron", "expr": "0 0 1 1 *", "display": "0 0 1 1 *"}, "schedule_display": "0 0 1 1 *", "repeat": {"times": null, "completed": 1}, "enabled": true, "state": "scheduled", "paused_at": null, "paused_reason": null, "created_at": "2026-08-13T20:38:37.436193-05:00", "next_run_at": "2027-01-01T00:00:00-05:00", "last_run_at": "2026-08-13T20:40:08.713250-05:00", "last_status": "ok", "last_error": null, "last_delivery_error": null, "deliver": "local", "origin": {"platform": "api_server", "chat_id": "api", "source_ip": "127.0.0.1", "peer_ip": "127.0.0.1", "user_agent": "curl/8.7.1"}, "enabled_toolsets": null, "workdir": null, "fire_claim": null}}
+REQUEST DELETE http://127.0.0.1:8642/p/botter-scratch/api/jobs/5b8fcd4c1687
+{"ok": true}
+HTTP_STATUS 200

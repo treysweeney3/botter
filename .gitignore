@@ -1,0 +1,38 @@
+# macOS
+.DS_Store
+
+# Secrets / local config
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.mobileprovision
+
+# Xcode / Swift
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+.swiftpm/
+Packages/
+.build/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+
+# Logs / local databases
+*.log
+*.sqlite
+*.sqlite3
+*.db

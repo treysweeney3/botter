@@ -1,0 +1,10 @@
+START_UTC 2026-08-14T01:38:35Z
+2026-08-14T01:38:37Z data: {"event": "message.delta", "run_id": "run_ac192beac13a4eae93d723d7edbd4a90", "timestamp": 1786671517.327379, "delta": "hi"}
+2026-08-14T01:38:37Z 
+2026-08-14T01:38:37Z data: {"event": "reasoning.available", "run_id": "run_ac192beac13a4eae93d723d7edbd4a90", "timestamp": 1786671517.3316631, "text": "hi"}
+2026-08-14T01:38:37Z 
+2026-08-14T01:38:37Z data: {"event": "run.completed", "run_id": "run_ac192beac13a4eae93d723d7edbd4a90", "timestamp": 1786671517.337983, "output": "hi", "usage": {"input_tokens": 18194, "output_tokens": 3, "total_tokens": 18197}}
+2026-08-14T01:38:37Z 
+2026-08-14T01:38:37Z : stream closed
+2026-08-14T01:38:37Z 
+END_UTC 2026-08-14T01:38:37Z

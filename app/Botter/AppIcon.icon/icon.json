@@ -1,0 +1,42 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "srgb:0.00000,0.00000,0.00000,1.00000",
+      "srgb:0.08704,0.17306,0.17535,1.00000"
+    ]
+  },
+  "groups" : [
+    {
+      "blur-material" : 0.5,
+      "layers" : [
+        {
+          "image-name" : "botter-v1-transparent.png",
+          "name" : "botter-v1-transparent",
+          "position" : {
+            "scale" : 0.75,
+            "translation-in-points" : [
+              -6.828125,
+              -4.8984375
+            ]
+          }
+        }
+      ],
+      "lighting" : "individual",
+      "shadow" : {
+        "kind" : "layer-color",
+        "opacity" : 0.5
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.37
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

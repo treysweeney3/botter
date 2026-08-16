@@ -1,0 +1,4 @@
+REQUEST POST http://127.0.0.1:8642/p/botter-scratch/api/sessions
+{"object": "hermes.session", "session": {"id": "api_1786671305_1e2421e8", "source": "api_server", "user_id": null, "model": "deepseek/deepseek-v4-flash-0731", "title": "Botter Phase 0 scratch 1786671305", "started_at": 1786671305.772753, "ended_at": null, "end_reason": null, "message_count": 0, "tool_call_count": 0, "input_tokens": 0, "output_tokens": 0, "cache_read_tokens": 0, "cache_write_tokens": 0, "reasoning_tokens": 0, "estimated_cost_usd": null, "actual_cost_usd": null, "api_call_count": 0, "parent_session_id": null, "pinned": false, "archived": false, "has_system_prompt": false, "has_model_config": true}}
+HTTP_STATUS 201
+SESSION_ID api_1786671305_1e2421e8

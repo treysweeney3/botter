@@ -1,0 +1,14 @@
+
+Profile: botter-scratch
+Path:    /Users/treysweeney/.hermes/profiles/botter-scratch
+Model:   deepseek/deepseek-v4-flash-0731 (openrouter)
+Skills:  83
+
+This will permanently delete:
+  • All config, API keys, memories, sessions, skills, cron jobs
+  • Command alias (/Users/treysweeney/.local/bin/botter-scratch)
+✓ Removed /Users/treysweeney/.local/bin/botter-scratch
+✓ Removed /Users/treysweeney/.hermes/profiles/botter-scratch
+
+Profile 'botter-scratch' deleted.
+No profile directory residue for botter-scratch

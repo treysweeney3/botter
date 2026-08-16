@@ -1,0 +1,23 @@
+START_UTC 2026-08-14T01:35:05Z
+2026-08-14T01:35:05Z event: run.started
+2026-08-14T01:35:05Z data: {"user_message": {"role": "user", "content": "Reply with exactly: hi"}, "runtime": {"provider": "", "model": "", "route_source": "global", "requested": {"provider": "", "model": ""}}, "session_id": "api_1786671305_1e2421e8", "run_id": "run_acbebc51784e4990b55be98e0336b758", "seq": 1, "ts": 1786671305.8298109}
+2026-08-14T01:35:05Z 
+2026-08-14T01:35:05Z event: message.started
+2026-08-14T01:35:05Z data: {"message": {"id": "msg_1ee3770120ce4b20acd2de3c817ad0f4", "role": "assistant"}, "session_id": "api_1786671305_1e2421e8", "run_id": "run_acbebc51784e4990b55be98e0336b758", "seq": 2, "ts": 1786671305.829826}
+2026-08-14T01:35:05Z 
+2026-08-14T01:35:09Z event: assistant.delta
+2026-08-14T01:35:09Z data: {"message_id": "msg_1ee3770120ce4b20acd2de3c817ad0f4", "delta": "hi", "session_id": "api_1786671305_1e2421e8", "run_id": "run_acbebc51784e4990b55be98e0336b758", "seq": 3, "ts": 1786671309.072147}
+2026-08-14T01:35:09Z 
+2026-08-14T01:35:09Z event: tool.progress
+2026-08-14T01:35:09Z data: {"message_id": "msg_1ee3770120ce4b20acd2de3c817ad0f4", "tool_name": "_thinking", "delta": "hi", "session_id": "api_1786671305_1e2421e8", "run_id": "run_acbebc51784e4990b55be98e0336b758", "seq": 4, "ts": 1786671309.1467688}
+2026-08-14T01:35:09Z 
+2026-08-14T01:35:09Z event: assistant.completed
+2026-08-14T01:35:09Z data: {"session_id": "api_1786671305_1e2421e8", "message_id": "msg_1ee3770120ce4b20acd2de3c817ad0f4", "content": "hi", "completed": true, "partial": false, "interrupted": false, "runtime": {"provider": "openrouter", "model": "deepseek/deepseek-v4-flash-0731", "route_source": "global", "requested": {"provider": "", "model": ""}}, "run_id": "run_acbebc51784e4990b55be98e0336b758", "seq": 5, "ts": 1786671309.1618}
+2026-08-14T01:35:09Z 
+2026-08-14T01:35:09Z event: run.completed
+2026-08-14T01:35:09Z data: {"session_id": "api_1786671305_1e2421e8", "message_id": "msg_1ee3770120ce4b20acd2de3c817ad0f4", "completed": true, "messages": [{"role": "assistant", "content": "hi", "finish_reason": "stop", "reasoning": null}], "usage": {"input_tokens": 18150, "output_tokens": 3, "total_tokens": 18153, "runtime": {"provider": "openrouter", "model": "deepseek/deepseek-v4-flash-0731", "route_source": "global", "requested": {"provider": "", "model": ""}}}, "runtime": {"provider": "openrouter", "model": "deepseek/deepseek-v4-flash-0731", "route_source": "global", "requested": {"provider": "", "model": ""}}, "run_id": "run_acbebc51784e4990b55be98e0336b758", "seq": 6, "ts": 1786671309.161815}
+2026-08-14T01:35:09Z 
+2026-08-14T01:35:09Z event: done
+2026-08-14T01:35:09Z data: {"session_id": "api_1786671305_1e2421e8", "run_id": "run_acbebc51784e4990b55be98e0336b758", "seq": 7, "ts": 1786671309.161818}
+2026-08-14T01:35:09Z 
+END_UTC 2026-08-14T01:35:09Z
