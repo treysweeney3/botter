@@ -1,7 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-label="com.treysweeney.botterd"
+label="io.github.treysweeney3.botterd"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+backend_dir="${repo_root}/backend"
+
+# uv lives in different places depending on how it was installed:
+# Homebrew on Apple Silicon (/opt/homebrew), Homebrew on Intel (/usr/local),
+# or the standalone installer (~/.local/bin). launchd runs with a minimal PATH
+# and cannot resolve it, so the plist needs the absolute path resolved here.
+uv_bin="${UV_BIN:-$(command -v uv || true)}"
+if [[ -z "${uv_bin}" ]]; then
+  for candidate in /opt/homebrew/bin/uv /usr/local/bin/uv "${HOME}/.local/bin/uv"; do
+    if [[ -x "${candidate}" ]]; then
+      uv_bin="${candidate}"
+      break
+    fi
+  done
+fi
+if [[ -z "${uv_bin}" || ! -x "${uv_bin}" ]]; then
+  printf 'botterd install aborted: could not find the "uv" executable. Install uv (https://docs.astral.sh/uv/) or set UV_BIN=/path/to/uv.\n' >&2
+  exit 1
+fi
+if [[ ! -f "${backend_dir}/pyproject.toml" ]]; then
+  printf 'botterd install aborted: no backend found at %s. Run this script from a full checkout of the repository.\n' "${backend_dir}" >&2
+  exit 1
+fi
+
 user_id="$(id -u)"
 domain="gui/${user_id}"
 service="${domain}/${label}"
@@ -51,6 +76,9 @@ cleanup() {
 trap cleanup EXIT
 
 sed \
+  -e "s|__LABEL__|${label}|g" \
+  -e "s|__UV_BIN__|${uv_bin}|g" \
+  -e "s|__PROJECT_DIR__|${backend_dir}|g" \
   -e "s|__LOG_PATH__|${log_path}|g" \
   >"${plist_tmp}" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -58,13 +86,13 @@ sed \
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.treysweeney.botterd</string>
+  <string>__LABEL__</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/opt/homebrew/bin/uv</string>
+    <string>__UV_BIN__</string>
     <string>run</string>
     <string>--project</string>
-    <string>/Users/treysweeney/projects/botter/backend</string>
+    <string>__PROJECT_DIR__</string>
     <string>uvicorn</string>
     <string>botterd.main:app</string>
     <string>--host</string>
@@ -73,7 +101,7 @@ sed \
     <string>8674</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>/Users/treysweeney/projects/botter/backend</string>
+  <string>__PROJECT_DIR__</string>
   <key>KeepAlive</key>
   <true/>
   <key>RunAtLoad</key>

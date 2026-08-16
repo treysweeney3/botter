@@ -1,6 +1,6 @@
 name: Botter
 options:
-  bundleIdPrefix: com.treysweeney
+  bundleIdPrefix: io.github.treysweeney3
   createIntermediateGroups: true
   deploymentTarget:
     macOS: "15.0"
@@ -28,7 +28,7 @@ targets:
           NSAllowsLocalNetworking: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.treysweeney.botter
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.treysweeney3.botter
         MARKETING_VERSION: 0.1.0
         CURRENT_PROJECT_VERSION: 1
         SWIFT_VERSION: "6.0"

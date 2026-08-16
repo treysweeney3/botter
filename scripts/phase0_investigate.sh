@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-HERMES_HOME="${HERMES_HOME:-/Users/treysweeney/.hermes}"
-HERMES_BIN="${HERMES_BIN:-$HERMES_HOME/../.local/bin/hermes}"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
+HERMES_BIN="${HERMES_BIN:-$HOME/.local/bin/hermes}"
 BASE="http://127.0.0.1:8642"
 PROFILE="botter-scratch"
-FIXTURES="/Users/treysweeney/projects/botter/backend/fixtures"
+FIXTURES="${BOTTER_FIXTURES:-$REPO_ROOT/backend/fixtures}"
 ENV_FILE="$HERMES_HOME/.env"
 KEY="$(awk -F= '$1=="API_SERVER_KEY" {sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE" 2>/dev/null || true)"
 PROFILE_KEY=""

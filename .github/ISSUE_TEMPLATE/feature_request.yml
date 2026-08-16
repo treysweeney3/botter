@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest a capability for Botter
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md) first — it lists
+        what is currently out of scope (iOS, Windows/Linux, alternative agent
+        backends, telemetry, bundling Hermes) and the two architectural
+        invariants that constrain every feature.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve
+      description: Describe the situation you are in, not the solution you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What should Botter do?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: invariants
+    attributes:
+      label: Invariants
+      description: Both must hold for a feature to be mergeable.
+      options:
+        - label: This does not require patching, forking, or vendoring Hermes core.
+          required: true
+        - label: This preserves "one bot is one real Hermes profile" — no simulated agent state.
+          required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

@@ -79,7 +79,10 @@ def validate_slug(slug: str) -> str:
 def render_soul(bot: BotCreate | Bot) -> str:
     return (
         f"# {bot.display_name} — {bot.title}\n\n"
-        f"You are {bot.display_name}, {bot.title} for Trey. {bot.description}\n\n"
+        # The owner's identity is deliberately absent: Hermes already maintains
+        # USER.md per profile, so naming the user here would duplicate it and
+        # go stale. The persona states the role; Hermes supplies who it is for.
+        f"You are {bot.display_name}, {bot.title}. {bot.description}\n\n"
         "## Working style\n"
         "- Answer in one message. Do not announce a step before you take it, and do not\n"
         "  post progress updates between tool calls. Do the work, then report once.\n"

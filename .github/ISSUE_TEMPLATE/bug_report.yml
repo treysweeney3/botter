@@ -1,0 +1,80 @@
+name: Bug report
+description: Something in Botter does not work the way it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please check:
+
+        - **Credentials stored in plaintext** is a documented design decision, not a bug. See [SECURITY.md](../blob/main/SECURITY.md).
+        - **Security vulnerabilities** must not be filed here. Use private reporting: Security → Report a vulnerability.
+        - **Logs may contain secrets.** Redaction is best-effort. Re-read anything you paste.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the ...
+        2. Click ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Which component
+      options:
+        - Botter.app (the macOS app)
+        - botterd (the backend service)
+        - scripts/ (setup, install, verify)
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: botter-version
+    attributes:
+      label: Botter version or commit
+      placeholder: "0.1.0, or the output of: git rev-parse --short HEAD"
+    validations:
+      required: true
+
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      placeholder: "15.3"
+    validations:
+      required: true
+
+  - type: input
+    id: hermes-version
+    attributes:
+      label: Hermes version or commit
+      description: "From your Hermes checkout: git -C ~/.hermes/hermes-agent rev-parse --short HEAD"
+      placeholder: "Leave blank if you were running against the mock server"
+
+  - type: textarea
+    id: health
+    attributes:
+      label: Health output
+      description: "Output of: curl -s http://127.0.0.1:8674/v1/health"
+      render: shell
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: "From ~/.botter/botterd.log. Check for secrets before pasting."
+      render: shell

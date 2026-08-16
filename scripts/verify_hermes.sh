@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-HERMES_HOME="${HERMES_HOME:-/Users/treysweeney/.hermes}"
+HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 BASE="http://127.0.0.1:8642"
 ENV_FILE="$HERMES_HOME/.env"
 CONFIG="$HERMES_HOME/config.yaml"

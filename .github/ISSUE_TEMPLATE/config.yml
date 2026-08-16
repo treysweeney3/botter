@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/treysweeney3/botter/security/advisories/new
+    about: Report privately. Do not open a public issue for a vulnerability.
+  - name: Hermes agent bug
+    url: https://github.com/NousResearch/hermes-agent/issues
+    about: Botter never patches Hermes. Bugs in the agent itself belong upstream.
+  - name: Question or idea
+    url: https://github.com/treysweeney3/botter/discussions
+    about: For setup help, questions, and open-ended proposals.

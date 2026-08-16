@@ -14,7 +14,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_DIR="$ROOT/app"
 SCHEME="Botter"
 CONFIG="Debug"
-BUNDLE_ID="com.treysweeney.botter"
+BUNDLE_ID="io.github.treysweeney3.botter"
 
 LAUNCH=1
 CLEAN=0

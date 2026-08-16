@@ -17,8 +17,10 @@ Instead of one catch-all assistant, you run a roster of named **Bots** — each 
 scheduled routines, and an approval boundary. All of it is managed from a single chat-first
 native app.
 
-Botter is a local-first clone of xAI's **Grok Bot**, built on top of the Nous Research
-`hermes-agent` already installed at `~/.hermes`.
+Botter is a local-first take on the multi-agent roster idea, built on top of the
+[Nous Research `hermes-agent`](https://github.com/NousResearch/hermes-agent) installed on your
+own machine at `~/.hermes`. You bring the agent and your own API keys; Botter gives you the
+roster, the chat, the routines, and the approvals on top.
 
 Two rules shape the whole design:
 
@@ -167,7 +169,7 @@ Everything in this section is implemented and live-verified.
 | Item | Phase | Notes |
 |---|---|---|
 | Group threads — bots passing work to each other | v2 | Cross-profile threads over the Hermes `a2a` toolset, with "Messages from ⬤ X and ⬤ Y" attribution rows. |
-| Shared computer view | v2 | Read-only sandbox / terminal / browser viewer. The header button already exists, disabled. |
+| Computer panel | v2 | Per-bot desktop: local Docker sandbox view first, then an on-demand cloud box with live preview and browser takeover. The header button already exists, disabled. Design in [`docs/PLAN_COMPUTER.md`](docs/PLAN_COMPUTER.md). |
 | iOS app | v3 | BotterKit already builds for iOS 18. The app target does not exist yet, and some views still import AppKit directly. |
 | Cloud relay | v3 | Cloudflare Tunnel plus an Access service token. `ClientConfiguration.extraHeaders` is already in place, so this is a URL-and-headers change. |
 | Memory editing | v1.5 | The viewer ships today; editing does not. |
@@ -184,27 +186,79 @@ Everything in this section is implemented and live-verified.
   empty summary rather than an invented join.
 - Deleting a profile needs a gateway restart and sweep before the slug can be reused.
 - Learning a routine by demonstration is out of scope. Hermes has no screen-watching trainer.
+- Botter depends on Hermes behavior that is not a published, versioned API. It is verified
+  against one Hermes version and warns rather than refusing on others. See
+  [`docs/HERMES_COMPATIBILITY.md`](docs/HERMES_COMPATIBILITY.md).
+- No signed release or `.dmg` yet — you build from source, and the build is ad-hoc signed.
 
 ---
 
 ## Getting started
 
-**Prerequisites** — macOS 15+, Xcode 16+ with Swift 6, `xcodegen`, `uv`, and a working
-Hermes install at `~/.hermes`.
+There is no installer or `.dmg` yet — you build from source. Budget **about 45 minutes** if
+you already have Xcode and a Hermes agent, or **about 2 hours from a cold start** (most of it
+downloading Xcode).
+
+[`docs/SETUP.md`](docs/SETUP.md) is the full guide, with troubleshooting for each step.
+
+**Prerequisites**
+
+| | | |
+|---|---|---|
+| macOS 15+ | | required |
+| Xcode 16+ with Swift 6 | ~10 GB from the App Store | required |
+| `xcodegen`, `uv` | `brew install xcodegen uv` | required |
+| A Hermes agent at `~/.hermes` | step 1 below | required |
+| An LLM provider API key | OpenRouter, xAI, or Nous Portal — with credit on it | required |
+| Docker | agent sandboxing and egress enforcement | optional, recommended |
 
 ```bash
-# 1. Prepare Hermes: enable api_server, multiplex profiles, fix the proxy allowlist
-scripts/setup_hermes.sh
-scripts/verify_hermes.sh          # 22 checks, all must pass
+# 0. Build tools
+brew install xcodegen uv
 
-# 2. Install botterd as a launchd agent (127.0.0.1:8674)
+# 1. Get a Hermes agent — SKIP if you already have one.
+#    `hermes setup` is where your own LLM API key goes; Botter never asks for it.
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+source ~/.zshrc                   # or ~/.bashrc
+hermes setup
+hermes chat                       # confirm Hermes works on its own before continuing
+
+# 2. Get Botter
+git clone https://github.com/treysweeney3/botter.git
+cd botter
+
+# 3. Prepare Hermes: enable api_server, multiplex profiles, fix the proxy allowlist
+scripts/setup_hermes.sh           # backs up config.yaml and proxy.yaml first
+scripts/verify_hermes.sh          # 22 checks, all must pass before continuing
+
+# 4. Install botterd as a launchd agent (127.0.0.1:8674)
 scripts/install_botterd.sh        # polls /v1/health for up to 30s
 
-# 3. Build and launch the app
+# 5. Build and launch the app
 scripts/run_app.sh                # --clean wipes DerivedData, --no-launch builds only
 ```
 
-**Developing against the mock server** — no Hermes required:
+Then open the **Hermes** sheet in the app to add credentials and authorize Composio, and
+create your first bot.
+
+Hermes installed elsewhere? Every script honors `HERMES_HOME`:
+`HERMES_HOME=/path/to/.hermes scripts/setup_hermes.sh`
+
+**If `botterd` never becomes healthy**, check `~/.botter/botterd.log`. The two most common
+causes are Hermes having no default model (`hermes model`) and a missing `API_SERVER_KEY`
+(re-run `scripts/setup_hermes.sh`). Both currently prevent `botterd` from starting at all
+rather than reporting the problem — see [`docs/SETUP.md`](docs/SETUP.md) §6.
+
+> **Botter modifies the Hermes agent it attaches to.** It edits `config.yaml` and
+> `proxy.yaml` (backing both up), and credentials you save are written to your main
+> profile as well as to each bot. See [`docs/SETUP.md`](docs/SETUP.md) §5 for the full
+> list of what changes on your machine, and
+> [`docs/DESIGN_CREDENTIAL_SCOPE.md`](docs/DESIGN_CREDENTIAL_SCOPE.md) for the plan to
+> narrow that blast radius.
+
+**Working on the app without Hermes** — the mock server is a contract-identical, in-memory
+implementation of every route including both SSE streams. It is a development tool, not a
+demo mode:
 
 ```bash
 cd backend && uv run mock         # 127.0.0.1:8674, token "mock-token"
@@ -281,19 +335,44 @@ botter/
 │   ├── mockserver/            # contract-identical in-memory fake for app development
 │   ├── tests/                 # 12 pytest files
 │   └── fixtures/              # captured Hermes SSE streams and Phase 0 transcripts
-├── docs/                      # spec + the three plan documents
-├── scripts/                   # Hermes setup, botterd install, app build, e2e
-└── tasks/                     # todo, handoff, lessons
+├── docs/                      # setup guide, spec, compatibility, design docs
+└── scripts/                   # Hermes setup, botterd install, app build, e2e
 ```
+
+`app/Botter.xcodeproj` is **generated** from `app/project.yml` by XcodeGen and is not tracked
+in git. Run `xcodegen generate` (or `scripts/run_app.sh`, which does it for you) after adding,
+renaming, or deleting a source file.
 
 ## Documents
 
 | Doc | Purpose |
 |---|---|
+| [`docs/SETUP.md`](docs/SETUP.md) | Install guide — prerequisites, getting a Hermes agent, what Botter changes on your machine, troubleshooting |
 | [`docs/SPEC.md`](docs/SPEC.md) | Product and system spec: concepts, architecture, pinned API contract, design language, phasing |
-| [`docs/PLAN_HERMES_SETUP.md`](docs/PLAN_HERMES_SETUP.md) | Changes to the Hermes agent's own config and setup — no core code changes |
-| [`docs/PLAN_BACKEND.md`](docs/PLAN_BACKEND.md) | `botterd` implementation plan |
-| [`docs/PLAN_FRONTEND.md`](docs/PLAN_FRONTEND.md) | SwiftUI app implementation plan |
-| [`backend/NOTES.md`](backend/NOTES.md) | Verified runtime findings about Hermes behavior |
+| [`backend/NOTES.md`](backend/NOTES.md) | Verified runtime findings about Hermes behavior — the most useful document here for a new contributor |
+| [`docs/HERMES_COMPATIBILITY.md`](docs/HERMES_COMPATIBILITY.md) | The Hermes version Botter is tested against, and every upstream behavior it depends on |
+| [`docs/DESIGN_CREDENTIAL_SCOPE.md`](docs/DESIGN_CREDENTIAL_SCOPE.md) | Open design question: the `main` profile's four roles and how to narrow Botter's write scope |
+| [`docs/PLAN_COMPUTER.md`](docs/PLAN_COMPUTER.md) | Design for the Computer panel — per-bot cloud desktop, local sandbox view |
 | [`docs/removed/`](docs/removed/) | Features removed on purpose, with restore instructions |
+
+---
+
+## Contributing
+
+Contributions are welcome — bug fixes, features, and documentation.
+Start with [`CONTRIBUTING.md`](CONTRIBUTING.md), which covers the development setup, the
+checks CI runs, the DCO sign-off, and the architectural invariants a PR has to respect.
+
+Security issues must **not** be filed as public issues — see [`SECURITY.md`](SECURITY.md),
+which also documents the trust model and the deliberate decision to store credentials in
+Hermes' plaintext `.env` format.
+
+## License
+
+[Apache License 2.0](LICENSE). See [`NOTICE`](NOTICE) for attribution.
+
+Botter is an independent project. It manages a local Hermes agent through that agent's own
+configuration and HTTP API, and includes no Hermes source code. Not affiliated with or
+endorsed by Nous Research, xAI, Composio, or any other organization whose services it can be
+configured to connect to.
 </content>

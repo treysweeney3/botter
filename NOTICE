@@ -1,0 +1,17 @@
+Botter
+Copyright 2026 Trey Sweeney
+
+This product includes software developed by Trey Sweeney and the Botter
+contributors, licensed under the Apache License, Version 2.0.
+
+Botter is an independent project. It manages a local installation of the
+Hermes agent (https://github.com/NousResearch/hermes-agent) over that agent's
+own configuration files and HTTP API. Botter does not include, redistribute,
+modify, or patch any Hermes source code. Hermes is developed by Nous Research
+and carries its own license and terms.
+
+Botter is not affiliated with, endorsed by, or sponsored by Nous Research,
+xAI, Composio, ASCII, Apple, or any other organization whose products or
+services it can be configured to connect to. All product names, logos, and
+trademarks are the property of their respective owners and are used here for
+identification purposes only.
