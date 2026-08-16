@@ -201,7 +201,7 @@ mirrors and clears credential-pool entries.
 
 | Phase | Deliverable | Owner |
 |---|---|---|
-| 0 | Hermes setup: enable api_server, multiplex profiles, proxy-allowlist fix, verification script (`docs/PLAN_HERMES_SETUP.md`) | manual + scripts |
+| 0 | Hermes setup: enable api_server, multiplex profiles, proxy-allowlist fix, verification script (`scripts/setup_hermes.sh`, `scripts/verify_hermes.sh`) | manual + scripts |
 | 1 | botterd core: registry, bot CRUD → profile lifecycle, chat proxy w/ SSE, feed aggregation, events firehose | GPT-5.6-Sol |
 | 2 | macOS app v1: sidebar, chat with streaming + task cards, bot create/edit | Fable 5 |
 | 3 | Routines + approvals end-to-end (both sides) | both |
@@ -212,7 +212,7 @@ Phases 1 and 2 overlap: the frontend starts against a **mock botterd** (tiny fix
 
 ## 7. Risks & open questions — RESOLVED 2026-08-13 (Phase 0; evidence in `backend/fixtures/`, details in `backend/NOTES.md`)
 
-1. **New-profile visibility** — ✅ ANSWERED: the running multiplexed gateway serves a freshly created profile immediately (HTTP 200 on first probe, no restart). **However, profile DELETION requires a restart + sweep**: the gateway resurrects served-profile dirs and retains deleted profiles' in-memory session/title state; `hermes profile delete` also crashes on sandbox-created ACL dirs. Purge sequence documented in `PLAN_HERMES_SETUP.md` Step 3.
+1. **New-profile visibility** — ✅ ANSWERED: the running multiplexed gateway serves a freshly created profile immediately (HTTP 200 on first probe, no restart). **However, profile DELETION requires a restart + sweep**: the gateway resurrects served-profile dirs and retains deleted profiles' in-memory session/title state; `hermes profile delete` also crashes on sandbox-created ACL dirs. Purge sequence documented in `backend/NOTES.md` §7.
 2. **api_server coverage under `/p/<profile>/`** — ✅ ANSWERED: sessions, chat/stream SSE, jobs, and `/v1/runs` all work under the prefix. Two caveats: per-profile routes auth against the *profile's own* `.env` key, and `POST /api/sessions` defaults the model to the literal `hermes-agent` (upstream 400) — always pass an explicit `model`. Chat SSE (`event:` + `data:` framing; events `run.started`/`message.started`/`assistant.delta`/`tool.progress`/`tool.started`/`tool.completed`/`assistant.completed`/`run.completed`/`done`) and run-events SSE (data-only framing, event name inside JSON) use **different dialects** — captured in `backend/fixtures/*.sse`.
 3. **Approvals for cron-initiated work** — ✅ ANSWERED: **cron executions do NOT create approvable runs** (job fires asynchronously ~1.5–3 min after `run`, completes with no runs-API record, no approval raised). The fallback stands as design: per-bot approval boundaries via SOUL.md + `tool_loop_guardrails`; app-side approvals guaranteed only for app-initiated chats in v1.
 4. **Task-report fidelity** — unchanged (heuristic mapping v1). Good news: `tool.started` events carry `tool_name`, `preview`, and `args`, which is enough for the conservative ✓-card mapping.

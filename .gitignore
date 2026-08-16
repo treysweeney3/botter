@@ -10,6 +10,11 @@
 *.mobileprovision
 
 # Xcode / Swift
+# Botter.xcodeproj is GENERATED from app/project.yml by XcodeGen. project.yml is
+# the source of truth. Tracking the generated project produces merge conflicts
+# on every branch that adds a file, so it stays out of git — run
+# `xcodegen generate` (scripts/run_app.sh does this for you) after changing it.
+app/Botter.xcodeproj/
 build/
 DerivedData/
 *.xcuserstate
@@ -36,3 +41,8 @@ dist/
 *.sqlite
 *.sqlite3
 *.db
+
+# Internal working documents — not part of the published project.
+# Historical planning docs and the working task log live here locally.
+docs/internal/
+tasks/

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-label="com.treysweeney.botterd"
+label="io.github.treysweeney3.botterd"
 user_id="$(id -u)"
 service="gui/${user_id}/${label}"
 plist_path="${HOME}/Library/LaunchAgents/${label}.plist"

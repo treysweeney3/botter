@@ -364,3 +364,57 @@ extension Integration {
         #expect(Slug.make("x") == "x")
     }
 }
+
+@Suite struct AvatarContrastTests {
+    /// Resolve a palette entry the way `AvatarView` draws it.
+    private func disc(_ hex: String) -> RGB {
+        try! #require(RGB(hexString: hex)).darkened(
+            toContrast: BotPalette.minimumContrast, against: .white
+        )
+    }
+
+    @Test func everyPaletteColorCarriesTheWhiteOtterAtThreeToOne() {
+        for entry in BotPalette.colors {
+            let ratio = disc(entry.hex).contrast(with: .white)
+            #expect(
+                ratio >= BotPalette.minimumContrast,
+                "\(entry.name) (\(entry.hex)) draws its otter at \(ratio):1"
+            )
+        }
+    }
+
+    /// The reason the adjustment exists. If this ever stops holding, the
+    /// darkening can be deleted.
+    @Test func rawPaletteWouldFailOnHalfTheColors() {
+        let failing = BotPalette.colors.filter { entry in
+            guard let raw = RGB(hexString: entry.hex) else { return false }
+            return raw.contrast(with: .white) < BotPalette.minimumContrast
+        }
+        #expect(failing.map(\.name).sorted() == ["green", "orange", "teal", "yellow"])
+    }
+
+    /// Darkening must stop at the threshold — overshooting would mute the
+    /// palette more than legibility requires.
+    @Test func colorsAreDarkenedNoFurtherThanNeeded() {
+        for entry in BotPalette.colors {
+            let ratio = disc(entry.hex).contrast(with: .white)
+            #expect(ratio <= BotPalette.minimumContrast + 0.01 || ratio == rawRatio(entry.hex))
+        }
+    }
+
+    private func rawRatio(_ hex: String) -> Double {
+        (RGB(hexString: hex) ?? .white).contrast(with: .white)
+    }
+
+    /// Colors that already pass are returned untouched.
+    @Test func alreadyLegibleColorsAreLeftAlone() {
+        for name in ["purple", "blue", "red", "pink"] {
+            let hex = BotPalette.colors.first { $0.name == name }!.hex
+            #expect(disc(hex) == RGB(hexString: hex))
+        }
+    }
+
+    @Test func unknownColorDoesNotCrash() {
+        _ = BotPalette.color(for: "nonsense")
+    }
+}

@@ -81,10 +81,15 @@ public struct AvatarView: View {
     let glyphName: String
     var size: CGFloat
 
-    /// Fraction of the disc the otter occupies. Larger than the old vector
-    /// glyphs used (0.5) — these are silhouettes rather than line marks, and
-    /// need the extra area to stay readable at small sizes.
-    private static let glyphFraction: CGFloat = 0.72
+    /// The artwork spans the whole disc box.
+    ///
+    /// Each otter is pre-fitted in its asset to the largest rectangle of its
+    /// own aspect ratio that fits inside the circle, so how much of the disc a
+    /// pose covers is decided per-pose at asset build time rather than by one
+    /// shared inset here. A single inset had to be small enough for the
+    /// tallest pose, which left the wide ones — swimming, floating — as thin
+    /// bands using a third of the disc's height.
+    private static let glyphFraction: CGFloat = 1.0
 
     public init(colorHex: String, glyphName: String, size: CGFloat = Tokens.avatarSize) {
         self.colorHex = colorHex
@@ -100,10 +105,12 @@ public struct AvatarView: View {
         ZStack {
             Circle().fill(BotPalette.color(for: colorHex))
             // Subtle top sheen + inner rim give the flat disc physical depth.
+            // Kept light: the otter sits under the brightest part of the
+            // sheen, and a stronger one eats the contrast it depends on.
             Circle().fill(
                 LinearGradient(
                     stops: [
-                        .init(color: .white.opacity(0.22), location: 0),
+                        .init(color: .white.opacity(0.12), location: 0),
                         .init(color: .white.opacity(0), location: 0.55),
                     ],
                     startPoint: .top,

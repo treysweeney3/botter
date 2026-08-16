@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Botter Phase 0 setup. This script is intentionally explicit about every
 # Hermes path and never edits the Hermes source checkout.
-HERMES_HOME="${HERMES_HOME:-/Users/treysweeney/.hermes}"
+HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 HERMES_PYTHON="${HERMES_PYTHON:-$HERMES_HOME/hermes-agent/venv/bin/python}"
 CONFIG="$HERMES_HOME/config.yaml"
 PROXY_CONFIG="$HERMES_HOME/proxy/proxy.yaml"
@@ -15,9 +15,31 @@ need() { command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
 need openssl
 need launchctl
 need curl
-[ -x "$HERMES_PYTHON" ] || die "Hermes venv Python not found: $HERMES_PYTHON"
-[ -f "$CONFIG" ] || die "missing Hermes config: $CONFIG"
-[ -f "$PROXY_CONFIG" ] || die "missing iron-proxy config: $PROXY_CONFIG"
+need grep
+
+hermes_missing() {
+  cat >&2 <<EOF
+ERROR: $1
+
+Botter manages an existing Hermes agent; it does not install one. Expected a
+Hermes install at:
+
+  HERMES_HOME=$HERMES_HOME
+
+If Hermes is installed somewhere else, re-run with an explicit path:
+
+  HERMES_HOME=/path/to/.hermes scripts/setup_hermes.sh
+
+If you do not have Hermes yet, install it first and complete its own setup
+(model + provider API key), then re-run this script. See docs/SETUP.md.
+EOF
+  exit 1
+}
+
+[ -d "$HERMES_HOME" ] || hermes_missing "no Hermes install found at $HERMES_HOME"
+[ -x "$HERMES_PYTHON" ] || hermes_missing "Hermes venv Python not found: $HERMES_PYTHON"
+[ -f "$CONFIG" ] || hermes_missing "missing Hermes config: $CONFIG"
+[ -f "$PROXY_CONFIG" ] || hermes_missing "missing iron-proxy config: $PROXY_CONFIG"
 
 backup_once() {
   local src="$1" dst="${1}.bak.botter-${TODAY}"
@@ -33,7 +55,7 @@ backup_once "$PROXY_CONFIG"
 
 mkdir -p "$(dirname "$ENV_FILE")"
 touch "$ENV_FILE"
-if rg -q '^API_SERVER_KEY=' "$ENV_FILE"; then
+if grep -q '^API_SERVER_KEY=' "$ENV_FILE"; then
   echo "ENV API_SERVER_KEY already present"
 else
   printf 'API_SERVER_KEY=%s\n' "$(openssl rand -hex 32)" >> "$ENV_FILE"
@@ -113,14 +135,14 @@ print(f"PROXY allowlist repaired with {len(hosts)} configured extra hosts")
 PY
 
 echo "Detecting iron-proxy supervision (read-only)"
-ps -axo pid=,command= 2>/dev/null | rg '[i]ron-proxy' || echo "No iron-proxy process found"
+ps -axo pid=,command= 2>/dev/null | grep '[i]ron-proxy' || echo "No iron-proxy process found"
 
 # Hermes owns iron-proxy as a managed subprocess (verified: `hermes egress
 # status` shows a PID, and no hermes/iron launchd label exists). Restart it
 # only if egress is enabled and running, so the edited proxy.yaml is applied.
-HERMES_CLI="$HERMES_HOME/../.local/bin/hermes"
+HERMES_CLI="${HERMES_BIN:-$HOME/.local/bin/hermes}"
 [ -x "$HERMES_CLI" ] || HERMES_CLI="$(command -v hermes)" || die "hermes CLI not found"
-if "$HERMES_CLI" egress status 2>&1 | rg -qi 'Enabled.*yes'; then  # status table prints to stderr
+if "$HERMES_CLI" egress status 2>&1 | grep -qi 'Enabled.*yes'; then  # status table prints to stderr
   "$HERMES_CLI" egress restart
   echo "iron-proxy restarted via hermes egress restart"
 else

@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same branch/PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests
+    # Pure Python with no macOS dependencies, so this runs on the cheap runner.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Sync dependencies
+        working-directory: backend
+        run: uv sync --locked --all-extras --dev
+
+      - name: Run tests
+        working-directory: backend
+        run: uv run pytest -q
+
+  swift:
+    name: Swift package tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Test BotterKit
+        working-directory: app/BotterKit
+        run: swift test
+
+  app:
+    name: macOS app build
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      # Botter.xcodeproj is generated, not tracked. project.yml is the source
+      # of truth, so the project must be generated before anything will build.
+      - name: Generate Xcode project
+        working-directory: app
+        run: xcodegen generate
+
+      # Unsigned build: CI has no Developer ID and the project is configured
+      # for ad-hoc signing. This verifies compilation, not distribution.
+      - name: Build
+        working-directory: app
+        run: |
+          xcodebuild \
+            -project Botter.xcodeproj \
+            -scheme Botter \
+            -configuration Debug \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+  scripts:
+    name: Shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Syntax check
+        run: for f in scripts/*.sh; do bash -n "$f"; done
+
+      - name: Lint
+        run: shellcheck --severity=warning scripts/*.sh
+
+  hygiene:
+    name: Repository hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Absolute home directories are the single most common way this repo
+      # breaks for someone who is not the original author.
+      - name: No hardcoded home directories
+        run: |
+          if grep -rn --exclude-dir=.git '/Users/[a-z]' \
+              scripts/ backend/botterd/ backend/mockserver/ app/project.yml; then
+            echo "::error::Hardcoded absolute home directory found. Derive it from \$HOME or the script location."
+            exit 1
+          fi
+          echo "OK: no hardcoded home directories"
+
+  dco:
+    name: DCO sign-off
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check commits are signed off
+        run: |
+          missing=0
+          range="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          for sha in $(git rev-list --no-merges "$range"); do
+            author="$(git log -1 --format='%an <%ae>' "$sha")"
+            if ! git log -1 --format='%B' "$sha" | grep -qi "^Signed-off-by: "; then
+              echo "::error::Commit $sha by $author is missing a Signed-off-by trailer."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Fix with: git commit --amend -s   (or: git rebase --signoff origin/main)"
+            echo "See CONTRIBUTING.md for details."
+            exit 1
+          fi
+          echo "OK: all commits signed off"

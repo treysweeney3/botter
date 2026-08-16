@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import secrets
+import shutil
 import stat
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +39,32 @@ def read_env_value(path: Path, key: str) -> str | None:
                     value = "".join(unescaped)
             return value
     return None
+
+
+def resolve_docker_bin() -> Path:
+    """Locate the Docker CLI without assuming one install layout.
+
+    Docker Desktop, Homebrew on Apple Silicon, Homebrew on Intel, Colima, and
+    OrbStack all put the binary somewhere different. Prefer an explicit
+    override, then PATH, then the common absolute locations. Falling back to
+    the bare name keeps Docker optional: the sandbox-refresh and profile-purge
+    paths already run with `check=False`, so an absent Docker degrades instead
+    of crashing botterd at import time.
+    """
+    override = os.environ.get("DOCKER_BIN")
+    if override:
+        return Path(override)
+    found = shutil.which("docker")
+    if found:
+        return Path(found)
+    for candidate in (
+        Path("/usr/local/bin/docker"),
+        Path("/opt/homebrew/bin/docker"),
+        Path.home() / ".docker/bin/docker",
+    ):
+        if candidate.exists():
+            return candidate
+    return Path("docker")
 
 
 def read_default_model(config_path: Path) -> str:
@@ -77,7 +104,7 @@ class Settings:
             port=int(os.environ.get("BOTTERD_PORT", "8674")),
             token_override=os.environ.get("BOTTERD_TOKEN"),
             api_server_key_override=os.environ.get("API_SERVER_KEY"),
-            docker_bin=Path(os.environ.get("DOCKER_BIN", "/usr/local/bin/docker")),
+            docker_bin=resolve_docker_bin(),
         )
 
     @property
