@@ -15,3 +15,7 @@
 ## 2026-08-14 — Global auth cannot stop at the default profile
 - **What happened:** The global Connections screen completed Google OAuth and reported success after writing only `~/.hermes`, while Botter chats execute in isolated `profiles/<slug>` homes. The active bot could not see the token; later API-key and integration changes had the same ownership flaw.
 - **Rule:** A globally presented authentication action is complete only when every Botter-managed runtime can consume it. Test the full path from credential persistence through profile scope and persistent sandbox mounts; aggregate status must fail visibly when any managed profile is out of sync.
+
+## 2026-08-16 — Headless UI verification is possible after all
+- **What happened:** UI work here has repeatedly shipped unverified because an automated shell has no Screen Recording permission, so `screencapture` fails. `NSView.cacheDisplay` and `CALayer.render(in:)` were tried next and both write blank pixels for SwiftUI content.
+- **Rule:** Render SwiftUI views to PNG in-process with `ImageRenderer` (`SnapshotDump`, `BOTTER_SNAPSHOT_DIR=dir`). It needs no permission. Design views so their resolved state is the default render — animation driven by `onAppear`-set `@State` renders blank, whereas an insertion `.transition` renders at identity — then a snapshot is real evidence, not a guess.

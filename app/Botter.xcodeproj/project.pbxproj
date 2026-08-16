@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		04858EBFD942C2983EBE2A17 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2ABE903E8751CE39F70E2CB /* SidebarView.swift */; };
 		074DC82503C8ECC8D5EBF3F7 /* ChatContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CB1F1DF50087C1F74C5D3C0 /* ChatContainerView.swift */; };
+		14602B55E0A820A5C2D413D7 /* SnapshotDump.swift in Sources */ = {isa = PBXBuildFile; fileRef = C718909086BE2A55CBFA540B /* SnapshotDump.swift */; };
 		2452E54D0C8BF1E56783E8C3 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59473F233440AD9578AAA7FC /* RootView.swift */; };
 		324FFE6B36E1C8021862F551 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AEEFF6A8EAB4AAC32E3F016F /* Assets.xcassets */; };
 		3A79B6636B8973151B41C4C6 /* ComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E06F6B77FB09F4D3C4A07B3 /* ComposerView.swift */; };
@@ -18,6 +19,7 @@
 		6220E54E3FA93D4459D61733 /* Blocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9619974422B84BD5241E63A3 /* Blocks.swift */; };
 		70E7BFB0496B7BC2FF2C0B3A /* RoutinesPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6F80C84A3CEEC72FD148547 /* RoutinesPanel.swift */; };
 		71C85F662DAA5BF6B7488596 /* TokenGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ABF3B6727795436BC27B056 /* TokenGalleryView.swift */; };
+		92EDA67C9C492C0B84D295AC /* StreamingText.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D27BC82B376B179AB6897E /* StreamingText.swift */; };
 		972BF08AE643FFAF01B2BD55 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = AA19EC340EBF8D51322B6EAC /* AppIcon.icon */; };
 		9D0B7F0D13B924171DB51D46 /* BotterKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4B8125FD71051BD59184F579 /* BotterKit */; };
 		B31E300D80BBB54DBD37B881 /* SuggestionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D9ABD4EF5573E26E273523B /* SuggestionCatalog.swift */; };
@@ -51,6 +53,8 @@
 		AEEFF6A8EAB4AAC32E3F016F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B6F80C84A3CEEC72FD148547 /* RoutinesPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutinesPanel.swift; sourceTree = "<group>"; };
 		BD9AE65D100CD49F20714578 /* AgentStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentStatus.swift; sourceTree = "<group>"; };
+		C4D27BC82B376B179AB6897E /* StreamingText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingText.swift; sourceTree = "<group>"; };
+		C718909086BE2A55CBFA540B /* SnapshotDump.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotDump.swift; sourceTree = "<group>"; };
 		CD29DC3828CCF199BD3A90BD /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		CFB03DE5D60DCE2C7FE88ABB /* BotterKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = BotterKit; path = BotterKit; sourceTree = SOURCE_ROOT; };
 		D2ABE903E8751CE39F70E2CB /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
@@ -71,6 +75,7 @@
 		2CE8B9688FACF1EAA1FE7674 /* Debug */ = {
 			isa = PBXGroup;
 			children = (
+				C718909086BE2A55CBFA540B /* SnapshotDump.swift */,
 				8ABF3B6727795436BC27B056 /* TokenGalleryView.swift */,
 			);
 			path = Debug;
@@ -100,6 +105,7 @@
 				3CB1F1DF50087C1F74C5D3C0 /* ChatContainerView.swift */,
 				CD29DC3828CCF199BD3A90BD /* ChatView.swift */,
 				9E06F6B77FB09F4D3C4A07B3 /* ComposerView.swift */,
+				C4D27BC82B376B179AB6897E /* StreamingText.swift */,
 				2C9F07DF8B300B6AAE1FEADB /* TaskReportCard.swift */,
 			);
 			path = Chat;
@@ -256,6 +262,8 @@
 				70E7BFB0496B7BC2FF2C0B3A /* RoutinesPanel.swift in Sources */,
 				D833B4570DB5D79FEF1E565C /* SettingsView.swift in Sources */,
 				04858EBFD942C2983EBE2A17 /* SidebarView.swift in Sources */,
+				14602B55E0A820A5C2D413D7 /* SnapshotDump.swift in Sources */,
+				92EDA67C9C492C0B84D295AC /* StreamingText.swift in Sources */,
 				B31E300D80BBB54DBD37B881 /* SuggestionCatalog.swift in Sources */,
 				B5FD9A5E8E15B172760C5214 /* SuggestionCatalogSheet.swift in Sources */,
 				C4DDD7A6568CF983DB697798 /* TaskReportCard.swift in Sources */,

@@ -119,8 +119,8 @@ struct MessageListView: View {
                                 .transition(.opacity.combined(with: .offset(y: 8)))
                         }
                     }
-                    if case .active(let text, let tool) = chat.streaming {
-                        StreamingBubble(text: text, toolActivity: tool, since: chat.streamingSince ?? .now)
+                    if case .active(let text) = chat.streaming {
+                        StreamingBubble(text: text, since: chat.streamingSince ?? .now)
                             .id("streaming")
                     }
                     if case .failed(let error) = chat.streaming {
@@ -135,14 +135,16 @@ struct MessageListView: View {
                 .padding(.vertical, 18)
                 .animation(animateChanges ? .easeOut(duration: 0.18) : nil, value: chat.messages.count)
             }
-            .defaultScrollAnchor(.bottom)
+            .defaultScrollAnchor(.bottom, for: .initialOffset)
+            // Growth during a stream is followed by the scroll view itself.
+            // Driving it imperatively from `chat.streaming` meant a hard
+            // `scrollTo` on every token, which fought the word-reveal animation
+            // and made the transcript stutter.
+            .defaultScrollAnchor(.bottom, for: .sizeChanges)
             .onChange(of: chat.messages.count) {
                 withAnimation(animateChanges ? .easeOut(duration: 0.15) : nil) {
                     proxy.scrollTo("bottom", anchor: .bottom)
                 }
-            }
-            .onChange(of: chat.streaming) {
-                proxy.scrollTo("bottom", anchor: .bottom)
             }
             .task {
                 // History load happens before first frame settles; enable
@@ -216,6 +218,8 @@ struct MessageRow: View {
     let message: Message
     let chat: ChatStore
 
+    @State private var isHovering = false
+
     var body: some View {
         switch message.kind {
         case .routineCreated:
@@ -237,16 +241,57 @@ struct MessageRow: View {
                 UserBubble(text: message.text ?? "", attachments: message.attachments ?? [])
             } else {
                 HStack {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if let trace = chat.traces[message.id], trace.duration >= 2 {
+                    VStack(alignment: .leading, spacing: 6) {
+                        // Steps are only visible here, so never hide a trace
+                        // that has any; a bare think still needs to be slow
+                        // enough to be worth mentioning.
+                        if let trace = chat.traces[message.id],
+                           !trace.steps.isEmpty || trace.duration >= 2 {
                             ThinkingTraceView(trace: trace)
                         }
                         MessageBlocksView(text: message.text ?? "")
+                        MessageActionsRow(text: message.text ?? "")
+                            .opacity(isHovering ? 1 : 0)
+                            .allowsHitTesting(isHovering)
+                            .animation(.easeOut(duration: 0.18), value: isHovering)
                     }
                     Spacer(minLength: 48)
                 }
+                .onHover { isHovering = $0 }
             }
         }
+    }
+}
+
+/// Actions under a finished reply. Revealed on hover so a quiet transcript
+/// stays quiet.
+struct MessageActionsRow: View {
+    let text: String
+
+    @State private var copied = false
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(text, forType: .string)
+                withAnimation(.easeOut(duration: 0.15)) { copied = true }
+                Task {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    withAnimation(.easeOut(duration: 0.3)) { copied = false }
+                }
+            } label: {
+                Image(systemName: copied ? "checkmark" : "square.on.square")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(copied ? Color(hex: 0x22C55E) : Tokens.textSecondary)
+                    .frame(width: 24, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.pressable)
+            .help(copied ? "Copied" : "Copy reply")
+        }
+        .padding(.leading, 2)
+        .opacity(text.isEmpty ? 0 : 1)
     }
 }
 
@@ -279,7 +324,13 @@ struct UserBubble: View {
                         .lineSpacing(3)
                         .foregroundStyle(Tokens.userBubbleText)
                         .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        // Stretch only to meet an image above it. On its own the
+                        // text sets the bubble's width, so a short line does not
+                        // sit in a 480pt slab of empty space.
+                        .frame(
+                            maxWidth: attachments.isEmpty ? nil : .infinity,
+                            alignment: .leading
+                        )
                 }
             }
                 .padding(.horizontal, attachments.isEmpty ? 15 : 5)
@@ -328,60 +379,28 @@ private struct AttachedImageView: View {
     }
 }
 
+/// The in-flight turn: whatever prose has streamed since the last tool call,
+/// with the "Thinking" indicator pinned underneath it for the whole turn.
+///
+/// The indicator never leaves until the reply lands. It used to be swapped out
+/// the moment any text arrived and swapped back in when a tool call cleared
+/// that text, which made the bottom of the transcript jump on every step.
 struct StreamingBubble: View {
     let text: String
-    let toolActivity: String?
     var since: Date = .now
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             if !text.isEmpty {
-                if let toolActivity {
-                    HStack(spacing: 6) {
-                        PixelGridLoader(size: 10)
-                        ShimmerText(text: toolActivity, font: Tokens.timestamp)
-                    }
-                    .padding(.leading, 4)
-                    .transition(.opacity)
-                }
-                StreamingTextBubble(text: text)
-            } else {
                 HStack {
-                    AgentWorkingIndicator(since: since, activity: toolActivity)
-                    Spacer()
+                    StreamingBlocksView(text: text)
+                    Spacer(minLength: 48)
                 }
             }
-        }
-    }
-}
-
-/// The live bubble while tokens stream in: fading appended text + caret.
-struct StreamingTextBubble: View {
-    let text: String
-
-    var body: some View {
-        HStack {
-            HStack(alignment: .bottom, spacing: 3) {
-                StreamedText(text: text)
-                TimelineView(.periodic(from: .now, by: 0.5)) { context in
-                    let visible = Int(context.date.timeIntervalSinceReferenceDate * 2) % 2 == 0
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(Tokens.textSecondary.opacity(visible ? 0.8 : 0))
-                        .frame(width: 7, height: 14)
-                }
+            HStack {
+                AgentWorkingIndicator(since: since)
+                Spacer()
             }
-            .padding(.horizontal, 15)
-            .padding(.vertical, 11)
-            .background(
-                RoundedRectangle(cornerRadius: Tokens.bubbleRadius, style: .continuous)
-                    .fill(Tokens.cardBackground)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: Tokens.bubbleRadius, style: .continuous)
-                    .strokeBorder(.white.opacity(0.045), lineWidth: 1)
-            )
-            .frame(maxWidth: 560, alignment: .leading)
-            Spacer(minLength: 48)
         }
     }
 }
@@ -434,14 +453,23 @@ struct SystemChip: View {
 
 extension Text {
     /// Markdown-rendering Text that degrades to plain text on parse failure.
+    /// Inline code gets the same monospaced-on-a-tint treatment the streaming
+    /// renderer gives it, so a span does not restyle when the stream settles.
     init(markdown: String) {
-        if let attributed = try? AttributedString(
+        guard var attributed = try? AttributedString(
             markdown: markdown,
             options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        ) {
-            self.init(attributed)
-        } else {
+        ) else {
             self.init(verbatim: markdown)
+            return
         }
+        let codeRanges = attributed.runs
+            .filter { $0.inlinePresentationIntent?.contains(.code) == true }
+            .map(\.range)
+        for range in codeRanges {
+            attributed[range].font = .system(size: 13, design: .monospaced)
+            attributed[range].backgroundColor = Color.white.opacity(0.07)
+        }
+        self.init(attributed)
     }
 }

@@ -70,8 +70,17 @@ struct TokenGalleryView: View {
                             ]
                         ))
                         SystemChip(icon: "clock", text: "Created routine  Overnight outbound")
-                        StreamingBubble(text: "", toolActivity: "Runs `salesforce export`")
+                        StreamingBubble(text: "")
+                        ThinkingTraceView(trace: ExchangeTrace(duration: 7, steps: [
+                            ToolStep(id: 0, name: "salesforce", status: "ok", summary: "Ran `salesforce export`"),
+                            ToolStep(id: 1, name: "sheets", status: "ok", summary: "Wrote 52 rows to Pipeline Q3"),
+                            ToolStep(id: 2, name: "gmail", status: "error", summary: "Draft rejected — no recipient"),
+                        ]))
                     }
+                }
+
+                section("Streaming") {
+                    StreamingDemo()
                 }
             }
             .padding(24)
@@ -88,6 +97,44 @@ struct TokenGalleryView: View {
                 .foregroundStyle(Tokens.textSecondary)
                 .textCase(.uppercase)
             content()
+        }
+    }
+
+    /// Replays a canned reply in irregular bursts — the way SSE deltas
+    /// actually land — so the streaming cadence can be judged without a
+    /// backend. Loops with a hold at the end.
+    private struct StreamingDemo: View {
+        private static let script = """
+        Pistachio is your **fastest-growing** flavor — sales are up 23% this \
+        month and margins beat vanilla by 8 points. Stone-fruit flavors are \
+        trending in the same range, and [the index](https://example.com) backs it up.
+
+        - Restock `pistachio-base` before Thursday
+        - Hold the vanilla order at 60%
+        """
+
+        @State private var text = ""
+
+        var body: some View {
+            StreamingBubble(text: text)
+                .task { await loop() }
+        }
+
+        private func loop() async {
+            let words = Self.script.split(separator: " ", omittingEmptySubsequences: false)
+            while !Task.isCancelled {
+                text = ""
+                var index = 0
+                while index < words.count {
+                    let burst = Int.random(in: 1...4)
+                    let end = min(index + burst, words.count)
+                    let chunk = words[index..<end].joined(separator: " ")
+                    text += text.isEmpty ? chunk : " " + chunk
+                    index = end
+                    try? await Task.sleep(for: .milliseconds(Int.random(in: 40...170)))
+                }
+                try? await Task.sleep(for: .seconds(3.4))
+            }
         }
     }
 

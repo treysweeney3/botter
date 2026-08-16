@@ -7,6 +7,13 @@ public struct ToolStep: Hashable, Sendable, Identifiable {
     public var name: String
     public var status: String  // "started" | "ok" | "error"
     public var summary: String?
+
+    public init(id: Int, name: String, status: String, summary: String? = nil) {
+        self.id = id
+        self.name = name
+        self.status = status
+        self.summary = summary
+    }
 }
 
 /// What happened between sending a message and its completed reply.
@@ -24,9 +31,12 @@ public struct ExchangeTrace: Hashable, Sendable {
 @MainActor
 @Observable
 public final class ChatStore {
+    /// Live state of one exchange. Tool activity is deliberately absent: the
+    /// bubble shows a single steady "Thinking" while the turn runs, and what
+    /// the agent actually did is read from `currentSteps` afterwards.
     public enum Streaming: Equatable {
         case idle
-        case active(text: String, toolActivity: String?)
+        case active(text: String)
         case failed(String)
     }
 
@@ -94,7 +104,7 @@ public final class ChatStore {
             attachments: images.isEmpty ? nil : images,
             createdAt: .now
         ))
-        streaming = .active(text: "", toolActivity: nil)
+        streaming = .active(text: "")
         streamingSince = .now
         currentSteps = []
 
@@ -107,7 +117,7 @@ public final class ChatStore {
                 guard let self else { return }
                 // Stream ended without message_complete (e.g. server restart):
                 // keep whatever streamed as a plain message so nothing is lost.
-                if case .active(let text, _) = self.streaming {
+                if case .active(let text) = self.streaming {
                     if !text.isEmpty {
                         self.messages.append(Message(
                             id: "local-\(UUID().uuidString)",
@@ -131,8 +141,8 @@ public final class ChatStore {
     private func apply(_ event: ChatEvent) {
         switch event {
         case .delta(let text):
-            if case .active(let current, let tool) = streaming {
-                streaming = .active(text: current + text, toolActivity: tool)
+            if case .active(let current) = streaming {
+                streaming = .active(text: current + text)
             }
         case .toolEvent(let name, let status, let summary):
             if status == "started" {
@@ -143,15 +153,11 @@ public final class ChatStore {
             } else {
                 currentSteps.append(ToolStep(id: currentSteps.count, name: name, status: status, summary: summary))
             }
-            if case .active(let current, _) = streaming {
-                let line = summary ?? name
-                // Text streamed before a tool call is narration, not the reply.
-                // The backend files it in the trace, so the live bubble drops it
-                // too and one turn stays one bubble.
-                streaming = .active(
-                    text: status == "started" ? "" : current,
-                    toolActivity: status == "started" ? line : nil
-                )
+            // Text streamed before a tool call is narration, not the reply. The
+            // backend files it in the trace, so the live bubble drops it too and
+            // one turn stays one bubble.
+            if status == "started", case .active = streaming {
+                streaming = .active(text: "")
             }
         case .approvalRequired(let runId, let summary):
             messages.append(Message(
@@ -183,7 +189,7 @@ public final class ChatStore {
         Task { [client, sessionId] in
             try? await client.stop(sessionId: sessionId)
         }
-        if case .active(let text, _) = streaming, !text.isEmpty {
+        if case .active(let text) = streaming, !text.isEmpty {
             messages.append(Message(
                 id: "local-\(UUID().uuidString)",
                 sessionId: sessionId,

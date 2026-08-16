@@ -79,15 +79,18 @@ struct ShimmerText: View {
     }
 }
 
-/// Pre-reply state: pixel loader + shimmering verb + elapsed seconds.
+/// In-flight state: pixel loader + "Thinking" + elapsed seconds.
+///
+/// Deliberately says one thing for the whole turn. Swapping in tool names and
+/// narration as they arrive made the line flicker between three different
+/// labels a second; the steps are shown afterwards in `ThinkingTraceView`.
 struct AgentWorkingIndicator: View {
     let since: Date
-    let activity: String?
 
     var body: some View {
         HStack(spacing: 8) {
             PixelGridLoader()
-            ShimmerText(text: activity ?? "Thinking")
+            ShimmerText(text: "Thinking")
             TimelineView(.periodic(from: since, by: 1)) { context in
                 Text(Self.elapsedLabel(seconds: context.date.timeIntervalSince(since)))
                     .font(.system(size: 12))
@@ -105,7 +108,7 @@ struct AgentWorkingIndicator: View {
             RoundedRectangle(cornerRadius: Tokens.bubbleRadius, style: .continuous)
                 .strokeBorder(.white.opacity(0.045), lineWidth: 1)
         )
-        .accessibilityLabel(activity ?? "Thinking")
+        .accessibilityLabel("Thinking")
     }
 
     /// Whole seconds under a minute ("42s"), then minutes and seconds
@@ -118,8 +121,8 @@ struct AgentWorkingIndicator: View {
     }
 }
 
-/// Collapsed "Thought for Ns" line above a completed reply; expands to the
-/// tool steps the agent took.
+/// Collapsed summary line above a completed reply — the only place tool steps
+/// are surfaced. Expands to everything the agent did on the way to the answer.
 struct ThinkingTraceView: View {
     let trace: ExchangeTrace
 
@@ -169,7 +172,13 @@ struct ThinkingTraceView: View {
         .padding(.leading, 4)
     }
 
+    /// Steps when there were any — that is what the disclosure reveals — and
+    /// the elapsed time when the agent only thought.
     private var label: String {
+        let steps = trace.steps.count
+        if steps > 0 {
+            return "Worked through \(steps) step\(steps == 1 ? "" : "s")"
+        }
         let seconds = max(1, Int(trace.duration.rounded()))
         return "Thought for \(seconds) second\(seconds == 1 ? "" : "s")"
     }
@@ -188,37 +197,5 @@ struct ThinkingTraceView: View {
         case "error": Color(hex: 0xEF4444)
         default: Tokens.textSecondary
         }
-    }
-}
-
-/// Fades newly-appended streamed text in, instead of popping it.
-struct StreamedText: View {
-    let text: String
-
-    @State private var committed = ""
-    @State private var tail = ""
-    @State private var tailVisible = true
-
-    var body: some View {
-        (Text(markdown: committed.collapsedBlankLines)
-            + Text(tail).foregroundStyle(Tokens.textPrimary.opacity(tailVisible ? 1 : 0)))
-            .font(Tokens.chatBody)
-            .lineSpacing(3)
-            .foregroundStyle(Tokens.textPrimary)
-            .onChange(of: text) { _, newValue in
-                let previous = committed + tail
-                if newValue.hasPrefix(previous) {
-                    committed = previous
-                    tail = String(newValue.dropFirst(previous.count))
-                } else {
-                    committed = newValue
-                    tail = ""
-                }
-                tailVisible = false
-                withAnimation(.easeOut(duration: 0.25)) { tailVisible = true }
-            }
-            .onAppear {
-                committed = text
-            }
     }
 }

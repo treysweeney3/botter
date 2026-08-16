@@ -5,6 +5,11 @@ import BotterKit
 struct BotterApp: App {
     @State private var model = AppModel()
 
+    init() {
+        // Headless UI verification hook; a no-op unless BOTTER_SNAPSHOT_DIR is set.
+        if SnapshotDump.runIfRequested() { exit(0) }
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

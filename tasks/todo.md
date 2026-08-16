@@ -348,3 +348,77 @@ and the reloaded history consistent.
   the brevity rule cost no hand-written content.
 - Verification: backend 108/108, BotterKit 18/18, `xcodebuild` succeeded, botterd restarted healthy,
   and the app runs from the rebuilt bundle (PID confirmed). The Hermes gateway was not restarted.
+
+## 2026-08-16 — Word-level streaming text
+
+Goal: replace the chunk-fade streaming bubble with the reference behaviour Trey supplied (React):
+words resolving out of blur at a steady cadence, an inline caret riding behind the last word.
+
+### Plan
+
+- [x] `StreamTokenizer`: split live markdown into styled words (bold, italic, inline code, links,
+      bullets, headings) with line/paragraph breaks
+- [x] `WordFlowLayout`: baseline-aligned paragraph flow, one view per word (per-word blur is
+      impossible inside a single `Text`)
+- [x] `StreamingProse`: paced release decoupled from delta arrival, blur/opacity/rise transition
+- [x] `StreamingBlocksView`: settled blocks render as their final selves; only trailing prose animates
+- [x] Close the streamed-vs-settled gap: bullets, inline-code tint, link colour, paragraph gap, width
+- [x] Hover-revealed copy action under finished replies
+- [x] `SnapshotDump`: headless PNG rendering of chat views (`BOTTER_SNAPSHOT_DIR=...`)
+- [x] Verify: build, snapshot frames at five stream prefixes + settled + a frozen reveal ramp,
+      12 s live run of the looping gallery demo, BotterKit 18/18
+- [ ] Trey confirms the cadence on screen (⌘⇧D → Streaming); a static frame cannot show timing
+
+### Review
+
+- The old `StreamedText` faded each arriving delta as one lump, so a burst of ten words popped in
+  together. Release is now paced on its own clock (55 ms per word, accelerating to drain any
+  backlog within ~0.3 s), which is what makes the reveal read as reading rather than as chunks.
+- The last word is held back until the next delta arrives: it may still be half-transmitted, and
+  revealing it would flicker as it grows.
+- Streaming and settled renders were compared frame to frame and now wrap at the same points with
+  the same bullets, code tint and link colour. Two changes were needed on the settled side —
+  `ProseBubble` normalises list markers to "•", and `Text(markdown:)` styles inline-code runs —
+  because inline-only `AttributedString` renders neither.
+- Text selection is unavailable during the stream (words are separate views) and returns the
+  moment the message settles.
+- `SnapshotDump` exists because `screencapture` needs Screen Recording permission this shell does
+  not have. `cacheDisplay` and `CALayer.render(in:)` both return blank pixels for SwiftUI; only
+  `ImageRenderer` draws the real tree.
+
+## 2026-08-16 — Steady stream status and non-jittery scrolling
+
+Goal: two grievances from a screen recording — the transcript stutters while text streams, and the
+status line flips between "Thinking", streamed narration and tool names within a single turn.
+Wanted: one steady "Thinking" during the turn, steps behind a "Worked through N steps" disclosure.
+
+### Plan
+
+- [x] Trace the flip to its source (`ChatStore.apply` rewrote `toolActivity` on every tool event and
+      wiped the live text, so the bubble swapped between prose and the indicator mid-turn)
+- [x] Drop `toolActivity` from `ChatStore.Streaming` — steps already live in `currentSteps`
+- [x] `AgentWorkingIndicator` says "Thinking", nothing else
+- [x] `StreamingBubble` keeps the indicator pinned below the prose for the whole turn
+- [x] `ThinkingTraceView` label becomes "Worked through N steps" when there are steps
+- [x] Show the disclosure whenever a trace has steps, not only when the turn took >= 2 s
+- [x] Replace the per-token `proxy.scrollTo` with `.defaultScrollAnchor(.bottom, for: .sizeChanges)`
+- [x] Verify: build, `SnapshotDump` turn frame, BotterKit 18/18
+- [ ] Trey confirms the scroll is smooth on screen (a static frame cannot show it)
+
+### Review
+
+- The jitter had two causes stacked on each other. `onChange(of: chat.streaming)` fired on every
+  delta and issued an unanimated `scrollTo`, which fought the word-reveal animation growing the
+  content between those jumps. And a tool call reset the live text to "", collapsing the bubble
+  back to the small indicator and then re-growing it — a hard height change per step.
+- `.defaultScrollAnchor(.bottom, for: .sizeChanges)` (macOS 15) hands the follow-the-bottom job to
+  the scroll view, which tracks the animated height instead of chasing it. The explicit `scrollTo`
+  is kept only for `messages.count`, so sending still snaps to the bottom from anywhere.
+- Keeping the indicator on screen for the whole turn is what removes the remaining swap: when a
+  tool call clears the narration, only the prose above it goes away — the "Thinking" row does not
+  move, appear or change its label.
+- `toolActivity` was removed from the streaming state rather than merely ignored, so there is one
+  source for what the agent did (`currentSteps` -> `ExchangeTrace`) and the live state no longer
+  churns on tool events at all.
+- Not verified here: the scroll itself. `screencapture` needs Screen Recording permission this
+  shell does not have, and the recording on the Desktop was unreadable for the same reason.

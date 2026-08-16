@@ -11,27 +11,51 @@ struct MessageBlocksView: View {
         let blocks = MessageBlockParser.parse(text)
         VStack(alignment: .leading, spacing: 10) {
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
-                switch block {
-                case .text(let prose):
-                    ProseBubble(text: prose)
-                case .code(let language, let filename, let code):
-                    CodeBlockView(language: language, filename: filename, code: code)
-                case .table(let headers, let rows):
-                    TableBlockView(headers: headers, rows: rows)
-                case .chart(let spec):
-                    ChartCardView(spec: spec)
-                }
+                BlockView(block: block)
             }
         }
         .frame(maxWidth: 620, alignment: .leading)
     }
 }
 
+/// One parsed block in its finished form. Shared with the streaming view so a
+/// block looks identical before and after the stream completes.
+struct BlockView: View {
+    let block: MessageBlock
+
+    var body: some View {
+        switch block {
+        case .text(let prose):
+            ProseBubble(text: prose)
+        case .code(let language, let filename, let code):
+            CodeBlockView(language: language, filename: filename, code: code)
+        case .table(let headers, let rows):
+            TableBlockView(headers: headers, rows: rows)
+        case .chart(let spec):
+            ChartCardView(spec: spec)
+        }
+    }
+}
+
 struct ProseBubble: View {
     let text: String
 
+    /// Inline markdown carries no list rendering, so a bullet would settle as
+    /// a literal "-" right after streaming showed it as one. Normalize it.
+    private var normalized: String {
+        text.split(separator: "\n", omittingEmptySubsequences: false)
+            .map { line -> String in
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                for marker in ["- ", "* ", "+ "] where trimmed.hasPrefix(marker) {
+                    return "• " + trimmed.dropFirst(marker.count)
+                }
+                return String(line)
+            }
+            .joined(separator: "\n")
+    }
+
     var body: some View {
-        Text(markdown: text)
+        Text(markdown: normalized)
             .font(Tokens.chatBody)
             .lineSpacing(3)
             .foregroundStyle(Tokens.textPrimary)
