@@ -89,17 +89,18 @@ struct BotEditorSheet: View {
                             )
                             .lineLimit(2...5)
                         }
-                        if let error {
-                            Text(error)
-                                .font(Tokens.sidebarBody)
-                                .foregroundStyle(.red)
-                        }
                     }
                     .padding(20)
                 }
             }
 
             Divider().overlay(Tokens.hairline)
+            // Pinned above the footer, not appended to the form: the form
+            // scrolls, and an error rendered under the last field sits below
+            // the fold — the save looked like it did nothing at all.
+            if let error {
+                errorBanner(error)
+            }
             footer
         }
         .frame(width: 460, height: 560)
@@ -221,6 +222,26 @@ struct BotEditorSheet: View {
         }
     }
 
+    @ViewBuilder
+    private func errorBanner(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(.red)
+            Text(message)
+                .font(Tokens.sidebarBody)
+                .foregroundStyle(Tokens.textPrimary)
+                .textSelection(.enabled)
+                // Bounded so a long botterd message cannot crowd out the form.
+                .lineLimit(4)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(Color.red.opacity(0.12))
+    }
+
     private var footer: some View {
         HStack {
             if let bot = editedBot {
@@ -242,6 +263,18 @@ struct BotEditorSheet: View {
                 }
             }
             Spacer()
+            if isSaving {
+                ProgressView().controlSize(.small)
+                // Creating a Botter clones a Hermes profile and opens its first
+                // session. That is tens of seconds of work, so the wait gets a
+                // label instead of a button that is merely dimmed.
+                Text(editedBot == nil ? "Creating…" : "Saving…")
+                    .font(Tokens.sidebarBody)
+                    .foregroundStyle(Tokens.textSecondary)
+            }
+            // Stays enabled while saving: a create runs for tens of seconds and
+            // trapping the sheet open for that long is worse than letting it
+            // close while botterd finishes.
             Button("Cancel") { dismiss() }
                 .keyboardShortcut(.cancelAction)
             Button(editedBot == nil ? "Create Botter" : "Save") {
@@ -350,6 +383,7 @@ struct BotEditorSheet: View {
             return
         }
         isSaving = true
+        error = nil
         defer { isSaving = false }
         do {
             if let bot = editedBot {

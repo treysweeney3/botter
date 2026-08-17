@@ -32,6 +32,12 @@ SLUG_PATTERN = re.compile(r"^[a-z0-9-]{1,32}$")
 RESERVED_PROFILES = frozenset({"main", "default"})
 ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 SHARED_EGRESS_ARTIFACTS = ("proxy.yaml", "ca.crt", "mappings.json", "iron-proxy.pid")
+EGRESS_REMEDY = (
+    "A bot reaches the network through main's iron-proxy, so start it first: run "
+    "`hermes egress setup` if it was never configured, or `hermes egress start` if it "
+    "is only stopped. `hermes egress status` must report Listening yes. Then create "
+    "the Botter again"
+)
 
 
 @dataclass(slots=True)
@@ -183,6 +189,40 @@ def _egress_links_match(target_dir: Path, source_dir: Path) -> bool:
     return True
 
 
+async def check_main_egress(
+    runner: CommandRunner,
+    *,
+    hermes_home: Path,
+    hermes_bin: Path,
+) -> None:
+    """Verify main's iron-proxy can back a bot profile.
+
+    Split out of :func:`provision_profile_egress` so bot creation can fail this
+    precondition in under a second, before a Hermes profile exists — rolling a
+    half-made profile back costs a gateway restart and minutes of wall clock.
+    """
+    source_dir = hermes_home / "proxy"
+    status = await runner.run(
+        [str(hermes_bin), "-p", "default", "egress", "status"],
+        timeout=30,
+        check=False,
+    )
+    status_text = ANSI_ESCAPE.sub("", f"{status.stdout}\n{status.stderr}")
+    if status.returncode != 0 or not re.search(r"\bListening\s+yes\b", status_text, re.IGNORECASE):
+        raise RuntimeError("Main iron-proxy is not healthy and listening; refusing direct bot egress")
+
+    missing = [name for name in SHARED_EGRESS_ARTIFACTS if not (source_dir / name).is_file()]
+    if missing:
+        raise RuntimeError(f"Main iron-proxy is missing required state: {', '.join(missing)}")
+    try:
+        mappings = json.loads((source_dir / "mappings.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Main iron-proxy mappings are unreadable") from exc
+    tokens = mappings.get("tokens") if isinstance(mappings, dict) else None
+    if not isinstance(tokens, list) or not tokens:
+        raise RuntimeError("Main iron-proxy has no provider token mappings")
+
+
 async def provision_profile_egress(
     slug: str,
     runner: CommandRunner,
@@ -204,25 +244,7 @@ async def provision_profile_egress(
     profile_dir = hermes_home / "profiles" / slug
     target_dir = profile_dir / "proxy"
 
-    status = await runner.run(
-        [str(hermes_bin), "-p", "default", "egress", "status"],
-        timeout=30,
-        check=False,
-    )
-    status_text = ANSI_ESCAPE.sub("", f"{status.stdout}\n{status.stderr}")
-    if status.returncode != 0 or not re.search(r"\bListening\s+yes\b", status_text, re.IGNORECASE):
-        raise RuntimeError("Main iron-proxy is not healthy and listening; refusing direct bot egress")
-
-    missing = [name for name in SHARED_EGRESS_ARTIFACTS if not (source_dir / name).is_file()]
-    if missing:
-        raise RuntimeError(f"Main iron-proxy is missing required state: {', '.join(missing)}")
-    try:
-        mappings = json.loads((source_dir / "mappings.json").read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise RuntimeError("Main iron-proxy mappings are unreadable") from exc
-    tokens = mappings.get("tokens") if isinstance(mappings, dict) else None
-    if not isinstance(tokens, list) or not tokens:
-        raise RuntimeError("Main iron-proxy has no provider token mappings")
+    await check_main_egress(runner, hermes_home=hermes_home, hermes_bin=hermes_bin)
 
     if target_dir.exists() or target_dir.is_symlink():
         if _egress_links_match(target_dir, source_dir):
@@ -298,6 +320,18 @@ class Registry:
                 raise APIError(409, "slug_exists", f"A bot already uses slug: {slug}")
             if profile_path.exists():
                 raise APIError(409, "profile_exists", f"A Hermes profile already exists: {slug}")
+            # Checked before the profile is cloned, not after: a bot cannot be
+            # served without egress, and failing afterwards means a rollback
+            # purge with a gateway restart — minutes of a spinner for a
+            # precondition that takes a second to read.
+            try:
+                await check_main_egress(
+                    self.runner,
+                    hermes_home=self.settings.hermes_home,
+                    hermes_bin=self.settings.hermes_bin,
+                )
+            except RuntimeError as exc:
+                raise APIError(503, "egress_unavailable", f"{exc}. {EGRESS_REMEDY}") from exc
             target_available = True
             await self.runner.run(
                 [str(self.settings.hermes_bin), "profile", "create", slug, "--clone", "--description", request.description],
@@ -337,6 +371,9 @@ class Registry:
                 await self.purge_profile(slug)
             raise
         except Exception as exc:
+            # Logged, not just returned: the client only shows one line, and
+            # the cause of a failed create is usually a Hermes-side traceback.
+            logger.exception("bot create failed for slug=%s", slug)
             if target_available and (created_profile or profile_path.exists()):
                 try:
                     await self.purge_profile(slug)

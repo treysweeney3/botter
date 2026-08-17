@@ -198,6 +198,39 @@ async def _true():
     return True
 
 
+class EgressDownRunner(FakeRunner):
+    """A Hermes install whose iron-proxy was never started."""
+
+    async def run(self, args, *, timeout=120, check=True):
+        call = tuple(str(item) for item in args)
+        if call[1:] == ("-p", "default", "egress", "status"):
+            self.calls.append(call)
+            return CommandResult(0, "  Enabled           no\n  Listening         no\n")
+        return await super().run(args, timeout=timeout, check=check)
+
+
+@pytest.mark.asyncio
+async def test_registry_create_rejects_a_stopped_iron_proxy_before_cloning(tmp_path):
+    settings = settings_for(tmp_path)
+    db = Database(settings.db_path)
+    await db.connect()
+    runner = EgressDownRunner(settings)
+    registry = Registry(settings, db, FakeHermes(), EventBus(), runner=runner, health_check=_true)
+    try:
+        with pytest.raises(APIError) as caught:
+            await registry.create(request())
+        assert caught.value.status_code == 503
+        assert caught.value.code == "egress_unavailable"
+        assert "hermes egress setup" in caught.value.message
+        # No profile was cloned, so no multi-minute rollback purge ran.
+        assert not any(call[1:3] == ("profile", "create") for call in runner.calls)
+        assert not any(call[1:3] == ("profile", "delete") for call in runner.calls)
+        assert not any(call[:3] == ("launchctl", "kickstart", "-k") for call in runner.calls)
+        assert not (settings.profiles_dir / "sales-bot").exists()
+    finally:
+        await db.close()
+
+
 @pytest.mark.asyncio
 async def test_registry_partial_create_rolls_back_through_full_purge(tmp_path):
     settings = settings_for(tmp_path)

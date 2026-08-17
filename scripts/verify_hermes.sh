@@ -120,6 +120,27 @@ while IFS= read -r host; do
   fi
 done <<< "$expected_hosts"
 
+# Creating a bot links the new profile to main's iron-proxy and refuses to
+# continue when that daemon is not listening, so a stopped proxy shows up as a
+# bot that cannot be created. Catch it here instead.
+HERMES_CLI="${HERMES_BIN:-$HOME/.local/bin/hermes}"
+[ -x "$HERMES_CLI" ] || HERMES_CLI="$(command -v hermes || true)"
+egress_status="$("$HERMES_CLI" egress status 2>&1 || true)"  # the status table prints to stderr
+if printf '%s\n' "$egress_status" | rg -qi 'Listening\s+yes'; then
+  pass "iron-proxy egress is listening"
+else
+  fail "iron-proxy egress is listening (run: hermes egress setup, or hermes egress start)"
+fi
+missing_proxy_state=0
+for artifact in proxy.yaml ca.crt mappings.json iron-proxy.pid; do
+  [ -f "$HERMES_HOME/proxy/$artifact" ] || missing_proxy_state=1
+done
+if [ "$missing_proxy_state" = "0" ] && rg -q '"proxy_token"' "$HERMES_HOME/proxy/mappings.json" 2>/dev/null; then
+  pass "iron-proxy state is complete and has provider token mappings"
+else
+  fail "iron-proxy state is complete and has provider token mappings"
+fi
+
 SLACK_LOG="$HERMES_HOME/logs/gateway.log"
 if [ -f "$SLACK_LOG" ] && tail -n 200 "$SLACK_LOG" | rg -qi 'slack.*(connected|socket|started)|socket.*slack|connected.*slack'; then
   pass "Slack platform on main has recent connected/socket evidence"
