@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -277,6 +278,9 @@ class FakeServe:
         self.statuses = statuses or ["authorization_required", "approved"]
         self.requests: list[tuple[str, str]] = []
 
+    def prewarm(self) -> None:
+        self.requests.append(("PREWARM", ""))
+
     async def request(self, method, path, *, json=None, params=None, retry=True):
         self.requests.append((method, path))
         if method == "POST" and path.endswith("/auth"):
@@ -314,6 +318,20 @@ def with_serve(service: McpService, serve: FakeServe) -> McpService:
     return service
 
 
+async def settle(service: McpService, flow_id: str = "flow-abc"):
+    """Poll a flow to its terminal state, the way the app does.
+
+    Approval hands the fan-out and the gateway restart to a background task, so
+    `approved` only arrives on a later poll.
+    """
+    for _ in range(400):
+        flow, server = await service.authorization_status(flow_id)
+        if flow.status in ("approved", "error"):
+            return flow, server
+        await asyncio.sleep(0.01)
+    raise AssertionError(f"flow {flow_id} never settled")
+
+
 @pytest.mark.asyncio
 async def test_authorize_returns_the_url_and_approval_reaches_every_bot(tmp_path):
     service, settings, runner, events = service_for(tmp_path, ["bot-one", "bot-two"])
@@ -332,7 +350,7 @@ async def test_authorize_returns_the_url_and_approval_reaches_every_bot(tmp_path
     assert pending.status == "authorization_required"
     assert server is None
 
-    approved, server = await service.authorization_status("flow-abc")
+    approved, server = await settle(service)
     assert approved.status == "approved"
     assert server is not None and server.authorized is True
     assert server.status == "connected"
@@ -346,6 +364,100 @@ async def test_authorize_returns_the_url_and_approval_reaches_every_bot(tmp_path
         assert oct(path.stat().st_mode)[-3:] == "600"
     # The gateway must restart to reconnect holding the grant.
     assert [call for call in runner.calls if "kickstart" in call]
+
+
+@pytest.mark.asyncio
+async def test_approval_reports_finishing_instead_of_waiting_for_the_restart(tmp_path):
+    """The poll that sees the approval must return at once.
+
+    The fan-out and the gateway restart take tens of seconds. Running them
+    inside the poll made the app look like it had missed the approval.
+    """
+    service, settings, runner, events = service_for(tmp_path, ["bot-one"])
+    with_serve(service, FakeServe(settings.hermes_home, statuses=["approved"]))
+    await service.put("composio", COMPOSIO)
+    runner.calls.clear()
+    await service.authorize("composio")
+
+    # Hold the restart open, as a real gateway health poll would.
+    restarted = asyncio.Event()
+
+    async def blocked_health() -> bool:
+        return restarted.is_set()
+
+    service.health_check = blocked_health  # type: ignore[assignment]
+
+    flow, server = await service.authorization_status("flow-abc")
+    assert flow.status == "finishing"
+    assert "restarting" in flow.instructions
+    assert flow.server == "composio"
+    # The browser step is done; the page must not be offered again.
+    assert flow.url is None
+    # Mid-fan-out the bots really are out of sync, which is not worth flashing
+    # at anyone, so no row is reported until it is done.
+    assert server is None
+    # Let the background task reach the restart it cannot complete yet.
+    await asyncio.sleep(0.05)
+    assert [call for call in runner.calls if "kickstart" in call]
+    again, _ = await service.authorization_status("flow-abc")
+    assert again.status == "finishing"
+
+    restarted.set()
+    settled, server = await settle(service)
+    assert settled.status == "approved"
+    assert server is not None and server.authorized is True
+    assert (settings.profiles_dir / "bot-one/mcp-tokens/composio.json").exists()
+    assert [call for call in runner.calls if "kickstart" in call]
+    # The app learns it is done from the event, without polling at all.
+    assert ("mcp_updated", {"name": "composio", "status": "connected"}) in events.published
+
+
+@pytest.mark.asyncio
+async def test_the_finish_is_reported_without_asking_hermes_again(tmp_path):
+    """Hermes expires its own flows, and botterd owns the ending after approval."""
+    service, settings, _, _ = service_for(tmp_path, ["bot-one"])
+    serve = FakeServe(settings.hermes_home, statuses=["approved"])
+    with_serve(service, serve)
+    await service.put("composio", COMPOSIO)
+    await service.authorize("composio")
+
+    flow, _ = await settle(service)
+
+    assert flow.status == "approved"
+    flow_reads = [call for call in serve.requests if call[1].startswith("/api/mcp/oauth/flows/")]
+    assert len(flow_reads) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_failed_restart_surfaces_on_the_next_poll(tmp_path):
+    class FailingRunner(RecordingRunner):
+        async def run(self, args, *, timeout=120, check=True):
+            await super().run(args, timeout=timeout, check=check)
+            raise RuntimeError("launchctl unavailable")
+
+    service, settings, _, _ = service_for(tmp_path, ["bot-one"])
+    with_serve(service, FakeServe(settings.hermes_home, statuses=["approved"]))
+    await service.put("composio", COMPOSIO)
+    await service.authorize("composio")
+    service.runner = FailingRunner()  # type: ignore[assignment]
+
+    flow, server = await settle(service)
+
+    assert flow.status == "error"
+    assert "restart" in (flow.error or "")
+    assert server is None
+
+
+@pytest.mark.asyncio
+async def test_listing_servers_prewarms_the_dashboard_child(tmp_path):
+    """Spawning `hermes serve` inside the authorize click is what made it slow."""
+    service, settings, _, _ = service_for(tmp_path, [])
+    serve = FakeServe(settings.hermes_home)
+    with_serve(service, serve)
+
+    await service.list()
+
+    assert ("PREWARM", "") in serve.requests
 
 
 @pytest.mark.asyncio
@@ -377,7 +489,7 @@ async def test_a_bot_missing_the_grant_reports_drift(tmp_path):
     with_serve(service, FakeServe(settings.hermes_home, statuses=["approved"]))
     await service.put("composio", COMPOSIO)
     await service.authorize("composio")
-    await service.authorization_status("flow-abc")
+    await settle(service)
 
     # A bot that lost its grant cannot use the server, even with the config entry.
     (settings.profiles_dir / "bot-two/mcp-tokens/composio.json").unlink()
@@ -394,7 +506,7 @@ async def test_a_refreshed_access_token_is_not_treated_as_drift(tmp_path):
     with_serve(service, FakeServe(settings.hermes_home, statuses=["approved"]))
     await service.put("composio", COMPOSIO)
     await service.authorize("composio")
-    await service.authorization_status("flow-abc")
+    await settle(service)
 
     (settings.profiles_dir / "bot-one/mcp-tokens/composio.json").write_text(
         '{"access_token":"at-ROTATED","refresh_token":"rt-1","token_type":"Bearer","scope":"all"}',
@@ -411,7 +523,7 @@ async def test_delete_removes_the_grant_everywhere(tmp_path):
     with_serve(service, FakeServe(settings.hermes_home, statuses=["approved"]))
     await service.put("composio", COMPOSIO)
     await service.authorize("composio")
-    await service.authorization_status("flow-abc")
+    await settle(service)
 
     await service.delete("composio")
 

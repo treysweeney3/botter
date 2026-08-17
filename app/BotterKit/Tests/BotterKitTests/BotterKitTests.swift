@@ -237,11 +237,30 @@ import Testing
         #expect(flow.isSettled == false)
         #expect(flow.url != nil)
 
+        // Approved by the provider, but botterd is still fanning the grant out
+        // and restarting the gateway. Not settled: the app keeps polling.
+        let finishingJSON = #"""
+        {"flow_id": "abc", "server": "composio", "status": "finishing",
+         "url": null, "instructions": "Approved. Copying the grant.", "error": null}
+        """#
+        let finishing = try decoder.decode(McpAuthorization.self, from: Data(finishingJSON.utf8))
+        #expect(finishing.isFinishing == true)
+        #expect(finishing.isSettled == false)
+
         let approvedJSON = #"""
         {"flow_id": "abc", "server": "composio", "status": "approved",
          "url": null, "instructions": "", "error": null}
         """#
         #expect(try decoder.decode(McpAuthorization.self, from: Data(approvedJSON.utf8)).isSettled)
+    }
+
+    /// The link appearing and the approval registering both land early in their
+    /// phase, so the poll has to be quick there and may relax afterwards.
+    @Test func mcpPollingIsQuickWhileSomeoneIsWatching() {
+        #expect(ConnectionsStore.pollInterval(after: .zero) == .milliseconds(400))
+        #expect(ConnectionsStore.pollInterval(after: .seconds(3)) == .milliseconds(400))
+        #expect(ConnectionsStore.pollInterval(after: .seconds(10)) == .seconds(1))
+        #expect(ConnectionsStore.pollInterval(after: .seconds(120)) == .seconds(2))
     }
 
     @MainActor

@@ -19,6 +19,7 @@ is four commands once the prerequisites are in place.
 | [XcodeGen](https://github.com/yonaskolb/XcodeGen) | generates the Xcode project from `project.yml` | Yes |
 | [uv](https://docs.astral.sh/uv/) | Python 3.11 environment for `botterd` | Yes |
 | A **Hermes agent** at `~/.hermes` | the thing Botter manages | Yes |
+| **Hermes egress configured** (`~/.hermes/proxy/proxy.yaml`) | Botter provisions each bot's egress; Hermes ships this off | Yes |
 | An **LLM provider API key** | Hermes needs a model to run | Yes |
 | Docker | agent sandboxes and egress enforcement | Optional, recommended |
 
@@ -59,7 +60,9 @@ Confirm it works before continuing:
 hermes --version
 ```
 
-You are ready. Skip to step 3.
+Then make sure egress is set up — see
+[Enable the egress firewall](#enable-the-egress-firewall) below. Having a
+working Hermes does **not** imply you have it; it is disabled by default.
 
 > **Heads up:** Botter attaches to your existing agent and **modifies it**.
 > Step 3 edits `~/.hermes/config.yaml` and `~/.hermes/proxy/proxy.yaml`, and
@@ -101,6 +104,28 @@ Hermes issues belong at
 > [`HERMES_COMPATIBILITY.md`](HERMES_COMPATIBILITY.md) for the verified version
 > and the exact behaviors Botter depends on. Other versions generally work;
 > Botter warns rather than refusing.
+
+### Enable the egress firewall
+
+Hermes ships **iron-proxy**, its TLS-intercepting egress firewall, **disabled**.
+Botter requires it: bot credentials are injected at the egress layer, and
+`setup_hermes.sh` repairs the allowlist in `~/.hermes/proxy/proxy.yaml`. A
+long-running Hermes install that has never used egress will not have that file.
+
+```bash
+hermes egress status     # already configured? then skip this
+hermes egress setup      # interactive: install + CA + mint tokens + write proxy.yaml
+```
+
+If you skip this, `scripts/setup_hermes.sh` stops with:
+
+```
+ERROR: missing iron-proxy config: ~/.hermes/proxy/proxy.yaml
+```
+
+That message means Hermes is installed and only this step is missing — run
+`hermes egress setup` and re-run the script. The same applies to `missing Hermes
+config`, which means `hermes setup` has not run.
 
 ---
 
@@ -217,6 +242,19 @@ profiles are ordinary Hermes profiles and survive uninstalling Botter.
 
 It looked in `~/.hermes`. Pass `HERMES_HOME=/actual/path` if yours is
 elsewhere, or install Hermes first (step 2).
+
+**`scripts/setup_hermes.sh` says a config file is missing**
+
+This is a different failure: Hermes *is* installed, but one of its own setup
+steps has not run. The message names the command to fix it.
+
+| Message | Fix |
+|---|---|
+| `missing Hermes config: …/config.yaml` | `hermes setup` |
+| `missing iron-proxy config: …/proxy/proxy.yaml` | `hermes egress setup` |
+
+Botter never creates Hermes configuration on your behalf — it only edits
+configuration Hermes has already written.
 
 **`install_botterd.sh` cannot find `uv`**
 

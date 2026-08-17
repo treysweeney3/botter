@@ -418,13 +418,20 @@ public struct McpServer: Codable, Identifiable, Hashable, Sendable {
 public struct McpAuthorization: Codable, Hashable, Sendable {
     public var flowId: String
     public var server: String
-    /// "starting" | "authorization_required" | "approved" | "error"
+    /// "starting" | "authorization_required" | "finishing" | "approved" | "error"
+    ///
+    /// `finishing` is botterd's own step, after the provider has approved: the
+    /// grant is copied to every bot and the Hermes gateway restarts. It runs in
+    /// the background, so the flow keeps reporting until it lands.
     public var status: String
     public var url: String?
     public var instructions: String
     public var error: String?
 
     public var isSettled: Bool { status == "approved" || status == "error" }
+
+    /// Approved by the provider; botterd is still making it usable by the bots.
+    public var isFinishing: Bool { status == "finishing" }
 }
 
 public enum ConnectResult: Sendable {

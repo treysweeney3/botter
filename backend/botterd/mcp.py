@@ -25,8 +25,11 @@ nested key. They add no validation that Botter needs. See `yaml_io`.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import re
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -39,6 +42,8 @@ from .hermes_serve import HermesServe
 from .models import McpAuthorization, McpServer, McpServerUpdate
 from .registry import CommandRunner, restart_gateway
 from .yaml_io import YAMLError, load_yaml
+
+logger = logging.getLogger(__name__)
 
 MCP_SERVERS_KEY = "mcp_servers"
 NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
@@ -100,6 +105,8 @@ class McpService:
         self.health_check = health_check
         self.serve = serve
         self.global_auth = global_auth
+        # flow_id -> (server name, task finishing that flow). See `authorization_status`.
+        self._finishing: dict[str, tuple[str, asyncio.Task[None]]] = {}
 
     @property
     def config_path(self) -> Path:
@@ -167,6 +174,10 @@ class McpService:
         ]
 
     async def list(self) -> tuple[list[McpServer], list[McpServer]]:
+        # The user is looking at the Connections sheet, so an authorize click is
+        # plausibly next. Start `hermes serve` now rather than inside that click.
+        if self.serve is not None:
+            self.serve.prewarm()
         entries = self._servers_in(self.config_path)
         rows = [self._row(name, entry) for name, entry in sorted(entries.items())]
         rows = [await self._with_sync(row) for row in rows]
@@ -293,6 +304,10 @@ class McpService:
         "Sign in and approve access in your browser. This window updates by itself "
         "when the provider confirms it."
     )
+    FINISHING_INSTRUCTIONS = (
+        "Approved. Copying the grant to your bots and restarting Hermes so they can "
+        "use it."
+    )
 
     def _require_serve(self) -> HermesServe:
         if self.serve is None:
@@ -301,8 +316,16 @@ class McpService:
             )
         return self.serve
 
-    @staticmethod
-    def _flow_from_payload(payload: Any, name: str, instructions: str) -> McpAuthorization:
+    @classmethod
+    def _instructions_for(cls, status: str) -> str:
+        if status == "authorization_required":
+            return cls.AUTHORIZE_INSTRUCTIONS
+        if status == "finishing":
+            return cls.FINISHING_INSTRUCTIONS
+        return ""
+
+    @classmethod
+    def _flow_from_payload(cls, payload: Any, name: str) -> McpAuthorization:
         if not isinstance(payload, dict) or not payload.get("flow_id"):
             raise APIError(502, "hermes_dashboard_error", "Unexpected MCP OAuth flow shape")
         status = str(payload.get("status") or "starting")
@@ -313,34 +336,125 @@ class McpService:
             server=str(payload.get("server_name") or name),
             status=status,  # type: ignore[arg-type]
             url=payload.get("authorization_url"),
-            instructions=instructions if status == "authorization_required" else "",
+            instructions=cls._instructions_for(status),
             error=payload.get("error"),
         )
 
     async def authorize(self, name: str) -> McpAuthorization:
-        await self.status(name)  # 404s an unknown server before starting a flow
+        # 404s an unknown server before starting a flow. The cheap presence check
+        # rather than `status()`: its cross-profile drift scan reads every bot's
+        # config, and this call is already the slowest one in the flow.
+        if name not in self._servers_in(self.config_path):
+            raise APIError(404, "mcp_server_not_found", f"MCP server not found: {name}")
         payload = await self._require_serve().request(
             "POST", f"/api/mcp/servers/{name}/auth"
         )
-        return self._flow_from_payload(payload, name, self.AUTHORIZE_INSTRUCTIONS)
+        return self._flow_from_payload(payload, name)
 
     async def authorization_status(self, flow_id: str) -> tuple[McpAuthorization, McpServer | None]:
+        """Report on one flow, never blocking on the work approval kicks off.
+
+        Approval is not the end of it: the grant has to reach every bot profile
+        and the gateway has to restart before any bot can use the server, and a
+        restart is a `launchctl kickstart` plus a health poll worth tens of
+        seconds. Running that inline made the poll that observed the approval
+        hang for the whole restart, which reads as the app missing the approval.
+        So approval hands off to a background task and reports `finishing`; the
+        `mcp_updated` event and the following polls carry the real ending.
+        """
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", flow_id):
             raise APIError(422, "invalid_flow_id", "Malformed authorization id")
+
+        settled = await self._finish_state(flow_id)
+        if settled is not None:
+            return settled
+
         payload = await self._require_serve().request("GET", f"/api/mcp/oauth/flows/{flow_id}")
         name = str((payload or {}).get("server_name") or "")
-        flow = self._flow_from_payload(payload, name, self.AUTHORIZE_INSTRUCTIONS)
+        flow = self._flow_from_payload(payload, name)
         if flow.status != "approved":
             return flow, None
-        # Approved against main. Give every bot the same grant, then restart so
-        # the gateway reconnects holding it.
-        if self.global_auth is not None:
-            async with self.global_auth.lock:
-                await self.global_auth.sync_mcp_tokens_locked(flow.server)
-        await self._restart()
-        server = await self.status(flow.server)
+
+        # One finish per server: a re-authorization while one is still running
+        # would restart the gateway twice for the same grant.
+        running = self._running_finish(flow.server)
+        task = running or asyncio.create_task(
+            self._finish_authorization(flow.server), name=f"mcp-finish-{flow.server}"
+        )
+        self._finishing[flow.flow_id] = (flow.server, task)
+        # No server row while finishing: mid-fan-out the bots genuinely are out
+        # of sync, and reporting that would flash an error at the user for work
+        # that is going fine.
+        return self._as_finishing(flow), None
+
+    def _running_finish(self, server_name: str) -> asyncio.Task[None] | None:
+        for name, task in self._finishing.values():
+            if name == server_name and not task.done():
+                return task
+        return None
+
+    @staticmethod
+    def _as_finishing(flow: McpAuthorization) -> McpAuthorization:
+        return flow.model_copy(
+            update={
+                "status": "finishing",
+                "instructions": McpService.FINISHING_INSTRUCTIONS,
+                # The browser step is over; offering the page again would only
+                # send the user back to a provider that has already answered.
+                "url": None,
+            }
+        )
+
+    async def _finish_state(
+        self, flow_id: str
+    ) -> tuple[McpAuthorization, McpServer | None] | None:
+        """Answer from the background task, without asking Hermes.
+
+        Hermes expires its own flows, so once we own the ending we must be able
+        to report it after the flow has gone from there.
+        """
+        entry = self._finishing.get(flow_id)
+        if entry is None:
+            return None
+        server_name, task = entry
+        base = McpAuthorization(flow_id=flow_id, server=server_name, status="finishing")
+        if not task.done():
+            return self._as_finishing(base), None
+        del self._finishing[flow_id]
+        error = None if task.cancelled() else task.exception()
+        if task.cancelled() or error is not None:
+            message = str(error) if error else "Authorization did not finish."
+            return (
+                base.model_copy(update={"status": "error", "instructions": "", "error": message}),
+                None,
+            )
+        server = await self.status(server_name)
+        return base.model_copy(update={"status": "approved", "instructions": ""}), server
+
+    async def _finish_authorization(self, server_name: str) -> None:
+        """Make an approved grant usable: fan it out, restart, announce."""
+        try:
+            if self.global_auth is not None:
+                async with self.global_auth.lock:
+                    await self.global_auth.sync_mcp_tokens_locked(server_name)
+            await self._restart()
+        except Exception:
+            # Nothing awaits this task, so log rather than let the failure sit
+            # unread until the next poll — which may never come.
+            logger.exception("finishing MCP authorization for %s failed", server_name)
+            raise
+        server = await self.status(server_name)
         await self._publish(server)
-        return flow, server
+
+    async def close(self) -> None:
+        """Drop in-flight finishes at shutdown. Called from the app lifespan."""
+        tasks = [task for _, task in self._finishing.values() if not task.done()]
+        self._finishing.clear()
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
+            with suppress(asyncio.CancelledError, Exception):
+                await task
 
     async def _apply(self, mutate: Callable[[Any], bool]) -> bool:
         if self.global_auth is not None:

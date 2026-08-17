@@ -113,6 +113,8 @@ class MockState:
     executions: dict[str, list[Execution]] = field(default_factory=dict)
     mcp_servers: dict[str, McpServer] = field(default_factory=dict)
     mcp_flows: dict[str, str] = field(default_factory=dict)
+    # Polls taken on each flow, so the mock can walk the real phase sequence.
+    mcp_flow_polls: dict[str, int] = field(default_factory=dict)
     integrations: dict[str, Integration] = field(default_factory=dict)
     events: EventBus = field(default_factory=EventBus)
 
@@ -799,6 +801,7 @@ def create_app(*, token: str | None = None) -> FastAPI:
         if name not in state.mcp_servers:
             raise APIError(404, "mcp_server_not_found", f"MCP server not found: {name}")
         state.mcp_flows[f"flow-{name}"] = name
+        state.mcp_flow_polls[f"flow-{name}"] = 0
         return McpAuthorizationResponse(
             authorization=McpAuthorization(
                 flow_id=f"flow-{name}",
@@ -818,7 +821,27 @@ def create_app(*, token: str | None = None) -> FastAPI:
         name = state.mcp_flows.get(flow_id)
         if name is None:
             raise APIError(404, "mcp_flow_not_found", "OAuth flow not found or expired")
-        # The mock settles immediately; the real flow waits on the browser.
+        # Walk the real phase sequence — waiting on the browser, then botterd's
+        # own fan-out and gateway restart — so every UI phase is reachable here.
+        # Each poll advances one step, rather than waiting on a real clock.
+        polls = state.mcp_flow_polls.get(flow_id, 0) + 1
+        state.mcp_flow_polls[flow_id] = polls
+        if polls < 3:
+            return McpAuthorizationResponse(
+                authorization=McpAuthorization(
+                    flow_id=flow_id,
+                    server=name,
+                    status="authorization_required" if polls < 2 else "finishing",
+                    url="https://login.composio.dev/authorize?mock=1" if polls < 2 else None,
+                    instructions=(
+                        "Sign in and approve access in your browser. This window updates "
+                        "by itself when the provider confirms it."
+                        if polls < 2
+                        else "Approved. Copying the grant to your bots and restarting "
+                        "Hermes so they can use it."
+                    ),
+                ),
+            )
         server = state.mcp_servers[name].model_copy(
             update={
                 "authorized": True,

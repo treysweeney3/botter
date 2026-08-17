@@ -170,6 +170,11 @@ async def test_mockserver_contract_smoke_hits_every_spec_route():
             flow = started.json()["authorization"]
             assert flow["status"] == "authorization_required"
             assert flow["url"].startswith("https://")
+            # Waiting on the browser, then on botterd's own fan-out and restart.
+            polled = await client.get(f"/v1/mcp/authorizations/{flow['flow_id']}", headers=AUTH)
+            assert polled.json()["authorization"]["status"] == "authorization_required"
+            polled = await client.get(f"/v1/mcp/authorizations/{flow['flow_id']}", headers=AUTH)
+            assert polled.json()["authorization"]["status"] == "finishing"
             settled = await client.get(f"/v1/mcp/authorizations/{flow['flow_id']}", headers=AUTH)
             assert settled.json()["authorization"]["status"] == "approved"
             assert settled.json()["server_state"]["authorized"] is True
