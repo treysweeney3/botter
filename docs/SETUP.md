@@ -126,9 +126,21 @@ scripts/verify_hermes.sh
 
 It then restarts the gateway and waits for `/health`.
 
-`verify_hermes.sh` runs 22 checks. **All of them must pass** before continuing.
+`verify_hermes.sh` runs about two dozen checks (the exact count follows your
+allowlist). **All of them must pass** before continuing.
 If any fail, stop and fix them — `botterd` will not work correctly against a
 half-configured Hermes.
+
+Two of those checks cover **iron-proxy egress**, and they are the ones most
+often unmet on a fresh Hermes: iron-proxy is disabled by default. Every bot
+reaches the network through main's iron-proxy, so Botter refuses to create a
+bot while that daemon is stopped:
+
+```bash
+hermes egress setup       # first time: installs the binary, mints the CA and tokens
+hermes egress start       # already configured, just not running (or: restart)
+hermes egress status      # must report: Listening  yes
+```
 
 **Hermes installed somewhere else?**
 

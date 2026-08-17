@@ -47,11 +47,24 @@ public final class BotterClient: Sendable {
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
 
-    public init(configuration: ClientConfiguration = ClientConfiguration(), session: URLSession = .shared) {
+    /// `URLSession.shared` is deliberately not the default: its 60s request
+    /// timeout is shorter than botterd's own budget for a single call. Creating
+    /// a bot clones a Hermes profile (180s) and deleting one restarts the
+    /// gateway, so a shared-session client reports a timeout while botterd is
+    /// still working — the request looks like it silently did nothing.
+    public init(configuration: ClientConfiguration = ClientConfiguration(), session: URLSession? = nil) {
         self.configuration = configuration
-        self.session = session
+        self.session = session ?? Self.makeSession()
         self.decoder = Self.makeDecoder()
         self.encoder = Self.makeEncoder()
+    }
+
+    /// Long-running-local-daemon session. `timeoutIntervalForRequest` is the
+    /// idle gap allowed between bytes, so it also covers a quiet SSE stream.
+    static func makeSession() -> URLSession {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 300
+        return URLSession(configuration: configuration)
     }
 
     static func makeDecoder() -> JSONDecoder {
