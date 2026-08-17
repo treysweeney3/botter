@@ -17,6 +17,7 @@ need launchctl
 need curl
 need grep
 
+# Hermes is absent from $HERMES_HOME entirely, or points at the wrong path.
 hermes_missing() {
   cat >&2 <<EOF
 ERROR: $1
@@ -36,10 +37,28 @@ EOF
   exit 1
 }
 
+# Hermes is installed, but one of its own setup steps has not been run yet.
+# $1 = what is missing, $2 = the Hermes command that creates it.
+hermes_incomplete() {
+  cat >&2 <<EOF
+ERROR: $1
+
+Hermes is installed at $HERMES_HOME, but this part of its setup has not run
+yet. Botter does not create Hermes configuration on your behalf. Run:
+
+  $2
+
+then re-run this script. See docs/SETUP.md.
+EOF
+  exit 1
+}
+
 [ -d "$HERMES_HOME" ] || hermes_missing "no Hermes install found at $HERMES_HOME"
 [ -x "$HERMES_PYTHON" ] || hermes_missing "Hermes venv Python not found: $HERMES_PYTHON"
-[ -f "$CONFIG" ] || hermes_missing "missing Hermes config: $CONFIG"
-[ -f "$PROXY_CONFIG" ] || hermes_missing "missing iron-proxy config: $PROXY_CONFIG"
+[ -f "$CONFIG" ] || hermes_incomplete "missing Hermes config: $CONFIG" "hermes setup"
+[ -f "$PROXY_CONFIG" ] || hermes_incomplete \
+  "missing iron-proxy config: $PROXY_CONFIG" \
+  "hermes egress setup"
 
 backup_once() {
   local src="$1" dst="${1}.bak.botter-${TODAY}"

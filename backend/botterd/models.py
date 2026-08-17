@@ -484,14 +484,16 @@ class McpServerUpdate(ContractModel):
 class McpAuthorization(ContractModel):
     """One in-flight MCP OAuth flow, driven by Hermes' dashboard backend.
 
-    `starting` → `authorization_required` (open `url`) → `approved` | `error`.
-    The app polls until the flow settles; botterd copies the grant to every bot
-    on approval.
+    `starting` → `authorization_required` (open `url`) → `finishing` → `approved`
+    | `error`. The app polls until the flow settles. `finishing` is botterd's own
+    step, not the provider's: the grant is copied to every bot and the gateway
+    restarts, which takes long enough that it runs in the background instead of
+    inside the poll. Only `approved` and `error` are terminal.
     """
 
     flow_id: str
     server: str
-    status: Literal["starting", "authorization_required", "approved", "error"]
+    status: Literal["starting", "authorization_required", "finishing", "approved", "error"]
     url: str | None = None
     instructions: str = ""
     error: str | None = None
@@ -500,6 +502,8 @@ class McpAuthorization(ContractModel):
 class McpAuthorizationResponse(ContractModel):
     authorization: McpAuthorization
     # Present once the flow is approved and the grant has reached every bot.
+    # Absent while `finishing`: the bots really are out of sync part-way through
+    # the fan-out, and that is not a state worth showing anyone.
     server_state: McpServer | None = None
 
 

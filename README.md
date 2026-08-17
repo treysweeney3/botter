@@ -32,6 +32,100 @@ Two rules shape the whole design:
 
 ---
 
+## Getting started
+
+There is no installer or `.dmg` yet — you build from source. Budget **about 45 minutes** if
+you already have Xcode and a Hermes agent, or **about 2 hours from a cold start** (most of it
+downloading Xcode).
+
+[`docs/SETUP.md`](docs/SETUP.md) is the full guide, with troubleshooting for each step.
+
+**Prerequisites**
+
+| | | |
+|---|---|---|
+| macOS 15+ | | required |
+| Xcode 16+ with Swift 6 | ~10 GB from the App Store | required |
+| `xcodegen`, `uv` | `brew install xcodegen uv` | required |
+| A Hermes agent at `~/.hermes` | step 1 below | required |
+| Hermes egress configured (`proxy/proxy.yaml`) | step 2 below — off by default in Hermes | required |
+| An LLM provider API key | OpenRouter, xAI, or Nous Portal — with credit on it | required |
+| Docker | agent sandboxing and egress enforcement | optional, recommended |
+
+```bash
+# 0. Build tools
+brew install xcodegen uv
+
+# 1. Get a Hermes agent — SKIP if you already have one.
+#    `hermes setup` is where your own LLM API key goes; Botter never asks for it.
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+source ~/.zshrc                   # or ~/.bashrc
+hermes setup
+hermes chat                       # confirm Hermes works on its own before continuing
+
+# 2. Turn on the iron-proxy egress firewall — SKIP if `hermes egress status` is set up.
+#    Hermes ships this disabled, so a working agent often still has no proxy.yaml.
+#    Botter requires it: bots get their credentials injected at the egress layer.
+hermes egress setup               # writes ~/.hermes/proxy/proxy.yaml
+
+# 3. Get Botter
+git clone https://github.com/treysweeney3/botter.git
+cd botter
+
+# 4. Prepare Hermes: enable api_server, multiplex profiles, fix the proxy allowlist
+scripts/setup_hermes.sh           # backs up config.yaml and proxy.yaml first
+scripts/verify_hermes.sh          # 22 checks, all must pass before continuing
+
+# 5. Install botterd as a launchd agent (127.0.0.1:8674)
+scripts/install_botterd.sh        # polls /v1/health for up to 30s
+
+# 6. Build and launch the app
+scripts/run_app.sh                # --clean wipes DerivedData, --no-launch builds only
+```
+
+Then open the **Hermes** sheet in the app to add credentials and authorize Composio, and
+create your first bot.
+
+Hermes installed elsewhere? Every script honors `HERMES_HOME`:
+`HERMES_HOME=/path/to/.hermes scripts/setup_hermes.sh`
+
+**If `setup_hermes.sh` stops on a missing file**, it tells you which Hermes setup step has not
+run: `missing Hermes config` → `hermes setup`, `missing iron-proxy config` → `hermes egress
+setup`. Botter never creates Hermes configuration on your behalf.
+
+**If `botterd` never becomes healthy**, check `~/.botter/botterd.log`. The two most common
+causes are Hermes having no default model (`hermes model`) and a missing `API_SERVER_KEY`
+(re-run `scripts/setup_hermes.sh`). Both currently prevent `botterd` from starting at all
+rather than reporting the problem — see [`docs/SETUP.md`](docs/SETUP.md) §6.
+
+> **Botter modifies the Hermes agent it attaches to.** It edits `config.yaml` and
+> `proxy.yaml` (backing both up), and credentials you save are written to your main
+> profile as well as to each bot. See [`docs/SETUP.md`](docs/SETUP.md) §5 for the full
+> list of what changes on your machine, and
+> [`docs/DESIGN_CREDENTIAL_SCOPE.md`](docs/DESIGN_CREDENTIAL_SCOPE.md) for the plan to
+> narrow that blast radius.
+
+**Working on the app without Hermes** — the mock server is a contract-identical, in-memory
+implementation of every route including both SSE streams. It is a development tool, not a
+demo mode:
+
+```bash
+cd backend && uv run mock         # 127.0.0.1:8674, token "mock-token"
+```
+
+**Tests**
+
+```bash
+cd backend && uv run pytest -q    # contract, SSE, credentials, MCP, registry, routines, YAML
+cd app/BotterKit && /usr/bin/swift test
+scripts/e2e.sh                    # live end-to-end against the installed daemon
+```
+
+**Uninstall** — `scripts/uninstall_botterd.sh` boots out the launchd agent and leaves
+`~/.botter` intact.
+
+---
+
 ## Architecture
 
 Three components, one seam. The app knows exactly one origin and one auth scheme.
@@ -193,90 +287,6 @@ Everything in this section is implemented and live-verified.
 
 ---
 
-## Getting started
-
-There is no installer or `.dmg` yet — you build from source. Budget **about 45 minutes** if
-you already have Xcode and a Hermes agent, or **about 2 hours from a cold start** (most of it
-downloading Xcode).
-
-[`docs/SETUP.md`](docs/SETUP.md) is the full guide, with troubleshooting for each step.
-
-**Prerequisites**
-
-| | | |
-|---|---|---|
-| macOS 15+ | | required |
-| Xcode 16+ with Swift 6 | ~10 GB from the App Store | required |
-| `xcodegen`, `uv` | `brew install xcodegen uv` | required |
-| A Hermes agent at `~/.hermes` | step 1 below | required |
-| An LLM provider API key | OpenRouter, xAI, or Nous Portal — with credit on it | required |
-| Docker | agent sandboxing and egress enforcement | optional, recommended |
-
-```bash
-# 0. Build tools
-brew install xcodegen uv
-
-# 1. Get a Hermes agent — SKIP if you already have one.
-#    `hermes setup` is where your own LLM API key goes; Botter never asks for it.
-curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
-source ~/.zshrc                   # or ~/.bashrc
-hermes setup
-hermes chat                       # confirm Hermes works on its own before continuing
-
-# 2. Get Botter
-git clone https://github.com/treysweeney3/botter.git
-cd botter
-
-# 3. Prepare Hermes: enable api_server, multiplex profiles, fix the proxy allowlist
-scripts/setup_hermes.sh           # backs up config.yaml and proxy.yaml first
-scripts/verify_hermes.sh          # 22 checks, all must pass before continuing
-
-# 4. Install botterd as a launchd agent (127.0.0.1:8674)
-scripts/install_botterd.sh        # polls /v1/health for up to 30s
-
-# 5. Build and launch the app
-scripts/run_app.sh                # --clean wipes DerivedData, --no-launch builds only
-```
-
-Then open the **Hermes** sheet in the app to add credentials and authorize Composio, and
-create your first bot.
-
-Hermes installed elsewhere? Every script honors `HERMES_HOME`:
-`HERMES_HOME=/path/to/.hermes scripts/setup_hermes.sh`
-
-**If `botterd` never becomes healthy**, check `~/.botter/botterd.log`. The two most common
-causes are Hermes having no default model (`hermes model`) and a missing `API_SERVER_KEY`
-(re-run `scripts/setup_hermes.sh`). Both currently prevent `botterd` from starting at all
-rather than reporting the problem — see [`docs/SETUP.md`](docs/SETUP.md) §6.
-
-> **Botter modifies the Hermes agent it attaches to.** It edits `config.yaml` and
-> `proxy.yaml` (backing both up), and credentials you save are written to your main
-> profile as well as to each bot. See [`docs/SETUP.md`](docs/SETUP.md) §5 for the full
-> list of what changes on your machine, and
-> [`docs/DESIGN_CREDENTIAL_SCOPE.md`](docs/DESIGN_CREDENTIAL_SCOPE.md) for the plan to
-> narrow that blast radius.
-
-**Working on the app without Hermes** — the mock server is a contract-identical, in-memory
-implementation of every route including both SSE streams. It is a development tool, not a
-demo mode:
-
-```bash
-cd backend && uv run mock         # 127.0.0.1:8674, token "mock-token"
-```
-
-**Tests**
-
-```bash
-cd backend && uv run pytest -q    # contract, SSE, credentials, MCP, registry, routines, YAML
-cd app/BotterKit && /usr/bin/swift test
-scripts/e2e.sh                    # live end-to-end against the installed daemon
-```
-
-**Uninstall** — `scripts/uninstall_botterd.sh` boots out the launchd agent and leaves
-`~/.botter` intact.
-
----
-
 ## API surface
 
 `http://127.0.0.1:8674`, all routes under `/v1`, `Authorization: Bearer <token>`, JSON in
@@ -375,4 +385,3 @@ Botter is an independent project. It manages a local Hermes agent through that a
 configuration and HTTP API, and includes no Hermes source code. Not affiliated with or
 endorsed by Nous Research, xAI, Composio, or any other organization whose services it can be
 configured to connect to.
-</content>

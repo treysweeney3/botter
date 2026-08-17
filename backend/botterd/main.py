@@ -193,6 +193,8 @@ def create_app(
                 watcher_task.cancel()
                 with suppress(asyncio.CancelledError):
                     await watcher_task
+            if "mcp" in locals():
+                await mcp.close()
             if "serve" in locals():
                 await serve.close()
             if "chats" in locals():

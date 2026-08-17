@@ -17,6 +17,12 @@ public final class ConnectionsStore {
     public private(set) var mcpError: String?
     /// Set while a browser OAuth flow is open for an MCP server.
     public private(set) var mcpAuthorization: McpAuthorization?
+    /// Server name whose flow has been asked for but has not come back yet.
+    ///
+    /// Starting a flow means spawning Hermes' management child and registering
+    /// an OAuth client with the provider, which is not instant. Without this the
+    /// UI has nothing to show for that whole stretch and reads as hung.
+    public private(set) var mcpAuthorizationPreparing: String?
     /// Server name currently being added, removed, or authorized. Each of
     /// those restarts the Hermes gateway, so the UI must show it is busy.
     public private(set) var busyMcpName: String?
@@ -176,20 +182,29 @@ public final class ConnectionsStore {
     ///
     /// The provider redirects to a loopback callback on the Hermes management
     /// service, so nothing comes back through this app — polling is how the
-    /// result arrives. On approval botterd copies the grant to every bot and
-    /// restarts the gateway, which is why this can take a moment to finish.
+    /// result arrives. After the provider approves, botterd copies the grant to
+    /// every bot and restarts the gateway in the background and reports
+    /// `finishing`, so this keeps polling past the approval until that lands.
     public func authorizeMcpServer(name: String) async {
         busyMcpName = name
-        defer { busyMcpName = nil }
+        mcpAuthorizationPreparing = name
+        defer {
+            busyMcpName = nil
+            mcpAuthorizationPreparing = nil
+        }
         do {
             var flow = try await client.authorizeMcpServer(name: name)
+            mcpAuthorizationPreparing = nil
             mcpAuthorization = flow
-            // Roughly three minutes at 2s, which covers a slow sign-in without
-            // polling a dead flow for ever. Hermes expires the flow itself.
-            for _ in 0..<90 {
+            var elapsed: Duration = .zero
+            // Five minutes, which covers a slow sign-in without polling a dead
+            // flow for ever. Hermes expires the flow itself.
+            while elapsed < .seconds(300) {
                 if flow.isSettled { break }
-                try await Task.sleep(nanoseconds: 2_000_000_000)
+                let wait = Self.pollInterval(after: elapsed)
+                try await Task.sleep(for: wait)
                 if Task.isCancelled { return }
+                elapsed += wait
                 let result = try await client.mcpAuthorization(flowId: flow.flowId)
                 flow = result.authorization
                 mcpAuthorization = flow
@@ -208,6 +223,18 @@ public final class ConnectionsStore {
             mcpError = error.localizedDescription
             mcpAuthorization = nil
         }
+    }
+
+    /// Poll quickly at first, then back off.
+    ///
+    /// The two moments a person is watching for — the link appearing and the
+    /// approval registering — both land early in their own phase, so a flat
+    /// interval spends its latency exactly where it is felt. Backing off keeps
+    /// a long wait in the browser cheap.
+    nonisolated static func pollInterval(after elapsed: Duration) -> Duration {
+        if elapsed < .seconds(6) { return .milliseconds(400) }
+        if elapsed < .seconds(30) { return .seconds(1) }
+        return .seconds(2)
     }
 
     public func cancelMcpAuthorization() {
@@ -230,10 +257,13 @@ public final class ConnectionsStore {
         switch event {
         case .integrationUpdated:
             Task { await refreshIntegrations() }
-        case .mcpUpdated:
-            // Skip while our own add/remove/authorize is in flight — those
-            // responses already carry the authoritative state.
-            guard busyMcpName == nil else { return }
+        case .mcpUpdated(let name, _):
+            // Skip while our own add/remove is in flight — those responses
+            // already carry the authoritative state. An authorization is the
+            // exception: botterd finishes it in the background, and this event
+            // is how that ending arrives.
+            let finishing = mcpAuthorization?.isFinishing == true && mcpAuthorization?.server == name
+            guard busyMcpName == nil || finishing else { return }
             Task { await refreshMcp() }
         default:
             break

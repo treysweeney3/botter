@@ -119,6 +119,8 @@ struct ConnectionsSheet: View {
                 }
                 if let flow = store.mcpAuthorization {
                     McpAuthorizationCallout(flow: flow, store: store)
+                } else if let preparing = store.mcpAuthorizationPreparing {
+                    McpAuthorizationPreparingCallout(server: preparing)
                 }
                 if let error = store.mcpError {
                     errorText(error)
@@ -1029,26 +1031,63 @@ struct McpPresetCard: View {
     }
 }
 
+/// Stands in for the flow card while the request that starts a flow is out.
+///
+/// Starting one spawns Hermes' management child and registers an OAuth client
+/// with the provider, which takes long enough that a bare row spinner reads as
+/// nothing happening.
+struct McpAuthorizationPreparingCallout: View {
+    let server: String
+
+    var body: some View {
+        McpAuthorizationShell(title: "Finish connecting \(server)") {
+            Text("Preparing the authorization page…")
+                .font(Tokens.sidebarBody)
+                .foregroundStyle(Tokens.textSecondary)
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Contacting the provider…")
+                    .font(Tokens.timestamp)
+                    .foregroundStyle(Tokens.textSecondary)
+            }
+        }
+    }
+}
+
 /// Shown while a browser OAuth flow is open. The provider redirects to a
 /// loopback callback on the Hermes management service, so this card waits for
 /// the result rather than collecting anything from the user.
+///
+/// Approval is not the end: botterd then copies the grant to every bot and
+/// restarts the Hermes gateway. That phase gets its own wording, because it is
+/// slow enough that "waiting for the provider" would be a lie.
 struct McpAuthorizationCallout: View {
     let flow: McpAuthorization
     let store: ConnectionsStore
 
+    @Environment(\.openURL) private var openURL
+    /// The flow whose page has been opened, so a re-poll never opens it twice.
+    @State private var openedFlowId: String?
+
+    private var progressLabel: String {
+        switch flow.status {
+        case "finishing": return "Setting it up for your bots…"
+        case "authorization_required": return "Waiting for you to approve in the browser…"
+        default: return "Starting…"
+        }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "person.badge.key")
-                    .font(.system(size: 11, weight: .semibold))
-                Text("Finish connecting \(flow.server)")
-                    .font(Tokens.sidebarName)
-            }
-            .foregroundStyle(Tokens.textPrimary)
+        McpAuthorizationShell(
+            title: flow.isFinishing
+                ? "Connecting \(flow.server)"
+                : "Finish connecting \(flow.server)"
+        ) {
             if !flow.instructions.isEmpty {
                 Text(flow.instructions)
                     .font(Tokens.sidebarBody)
                     .foregroundStyle(Tokens.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let url = flow.url.flatMap(URL.init(string:)) {
                 Link("Open authorization page", destination: url)
@@ -1056,13 +1095,47 @@ struct McpAuthorizationCallout: View {
             }
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
-                Text(flow.status == "starting" ? "Starting…" : "Waiting for the provider…")
+                Text(progressLabel)
                     .font(Tokens.timestamp)
                     .foregroundStyle(Tokens.textSecondary)
                 Spacer()
-                Button("Cancel") { store.cancelMcpAuthorization() }
-                    .controlSize(.small)
+                // Past approval the work continues on the server, so offering
+                // "Cancel" would promise something this button cannot do.
+                Button(flow.isFinishing ? "Hide" : "Cancel") {
+                    store.cancelMcpAuthorization()
+                }
+                .controlSize(.small)
             }
+        }
+        .onChange(of: flow.url) { _, url in openIfNeeded(url) }
+        .onAppear { openIfNeeded(flow.url) }
+    }
+
+    /// Opens the page as soon as there is one — the browser step is required,
+    /// so making the user click a second time only adds delay.
+    private func openIfNeeded(_ raw: String?) {
+        guard openedFlowId != flow.flowId, let url = raw.flatMap(URL.init(string:)) else { return }
+        openedFlowId = flow.flowId
+        openURL(url)
+    }
+}
+
+/// The shared frame for the authorization cards, so the preparing phase and the
+/// flow phases are one card that changes rather than two that swap.
+struct McpAuthorizationShell<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "person.badge.key")
+                    .font(.system(size: 11, weight: .semibold))
+                Text(title)
+                    .font(Tokens.sidebarName)
+            }
+            .foregroundStyle(Tokens.textPrimary)
+            content
         }
         .padding(12)
         .background(
