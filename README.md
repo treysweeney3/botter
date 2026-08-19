@@ -1,3 +1,5 @@
+**It was a good idea for about 24 hours and then Hermes released bot mode.**
+
 <div align="center">
 
 <img src="docs/assets/botter-icon.png" alt="Botter" width="180">
